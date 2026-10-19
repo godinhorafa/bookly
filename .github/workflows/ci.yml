@@ -72,5 +72,8 @@ jobs:
       - name: Integration & feature tests
         run: vendor/bin/pest --testsuite=Integration,Feature
 
+      - name: Concurrency tests (parallel processes)
+        run: vendor/bin/pest --testsuite=Concurrency
+
       - name: Coverage
         run: vendor/bin/pest --coverage

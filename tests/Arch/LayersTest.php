@@ -1,9 +1,16 @@
 <?php
 
 declare(strict_types=1);
+
+use Domain\Booking\BookingId;
+use Domain\Booking\BookingRepository;
+use Domain\Booking\CustomerId;
 use Domain\Booking\TimeSlot;
 use Domain\Shared\Exception\DomainException;
 use Domain\Shared\Money;
+use Domain\Space\Space;
+use Domain\Space\SpaceId;
+use Domain\Space\SpaceRepository;
 
 /*
  * Dependency rule: Domain <- Application <- Infrastructure / App (HTTP).
@@ -23,12 +30,20 @@ arch('domain code uses strict types')
     ->toUseStrictTypes();
 
 arch('value objects are immutable')
-    ->expect([Money::class, TimeSlot::class])
+    ->expect([Money::class, TimeSlot::class, BookingId::class, CustomerId::class, SpaceId::class, Space::class])
     ->toBeReadonly()
     ->toBeFinal();
 
+arch('repositories are ports owned by the domain')
+    ->expect([BookingRepository::class, SpaceRepository::class])
+    ->toBeInterfaces();
+
+arch('eloquent stays inside infrastructure')
+    ->expect('Illuminate\Database')
+    ->toOnlyBeUsedIn(['Infrastructure', 'App', 'Database', 'Tests']);
+
 arch('domain exceptions share a common base')
-    ->expect(['Domain\Shared\Exception', 'Domain\Booking\Exception'])
+    ->expect(['Domain\Shared\Exception', 'Domain\Booking\Exception', 'Domain\Space\Exception'])
     ->classes()
     ->toExtend(DomainException::class)
     ->ignoring(DomainException::class);

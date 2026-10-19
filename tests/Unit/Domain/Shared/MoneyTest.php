@@ -68,3 +68,20 @@ it('is immutable', function (): void {
 
     expect($original->amount)->toBe(1_000);
 });
+
+it('multiplies by a ratio rounding half up', function (int $amount, int $numerator, int $denominator, int $expected): void {
+    expect(Money::of($amount, Currency::BRL)->ratio($numerator, $denominator)->amount)->toBe($expected);
+})->with([
+    '90 of 60 minutes' => [6_000, 90, 60, 9_000],
+    'exact half rounds up' => [1, 1, 2, 1],
+    'below half rounds down' => [1, 1, 3, 0],
+    'odd denominator' => [10, 2, 3, 7],
+    'zero numerator' => [5_000, 0, 60, 0],
+]);
+
+it('rejects invalid ratios', function (int $numerator, int $denominator): void {
+    Money::of(1_000, Currency::BRL)->ratio($numerator, $denominator);
+})->with([
+    'negative numerator' => [-1, 60],
+    'zero denominator' => [1, 0],
+])->throws(InvalidMoney::class);

@@ -22,4 +22,9 @@ final class InvalidMoney extends DomainException
     {
         return new self("Percentage must be between 0 and 100, got {$percent}.");
     }
+
+    public static function invalidRatio(int $numerator, int $denominator): self
+    {
+        return new self("Invalid ratio {$numerator}/{$denominator}: numerator must be >= 0 and denominator > 0.");
+    }
 }

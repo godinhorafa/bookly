@@ -41,10 +41,10 @@ ALTER TABLE bookings
   and a `CHECK` constraint rejects any other bound type.
 - The `WHERE` clause makes the constraint **partial**: cancelled bookings
   release their slot.
-- The domain still validates overlaps up front to give a friendly error. The
-  constraint is the source of truth for the race. The repository (next step) translates
-  SQLSTATE `23P01` (`exclusion_violation`) into a domain `SlotUnavailable`
-  exception.
+- The use case still checks for overlaps up front to give a friendly error,
+  but the constraint is the source of truth for the race. `EloquentBookingRepository`
+  translates SQLSTATE `23P01` (`exclusion_violation`) into the domain
+  `SlotUnavailable` exception.
 
 ## Consequences
 
@@ -53,3 +53,7 @@ ALTER TABLE bookings
   domain stays database-agnostic and only the repository knows about ranges.
 - The behaviour is covered by integration tests against a real PostgreSQL
   (`tests/Integration/Persistence/BookingOverlapConstraintTest.php`), not SQLite.
+- `tests/Concurrency/ConcurrentBookingTest.php` starts 8 PHP processes that book
+  the same slot at the same instant through the real use case. Exactly one succeeds.
+  With the constraint disabled, the same test reliably lets 2–3 bookings through.
+  That is the race this decision exists to prevent.

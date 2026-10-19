@@ -79,7 +79,7 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
         "test:unit": "@php vendor/bin/pest --testsuite=Unit,Arch",
-        "test:integration": "@php vendor/bin/pest --testsuite=Integration",
+        "test:integration": "@php vendor/bin/pest --testsuite=Integration,Concurrency",
         "analyse": "@php vendor/bin/phpstan analyse --memory-limit=1G",
         "lint": [
             "@php vendor/bin/pint --test",

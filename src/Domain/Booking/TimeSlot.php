@@ -33,7 +33,7 @@ final readonly class TimeSlot
 
     public static function fromStrings(string $start, string $end): self
     {
-        return new self(new \DateTimeImmutable($start), new \DateTimeImmutable($end));
+        return new self(self::parse($start), self::parse($end));
     }
 
     public function overlaps(self $other): bool
@@ -60,6 +60,15 @@ final readonly class TimeSlot
     /**
      * Compares by point in time, not object identity (=== on objects checks identity).
      */
+    private static function parse(string $value): \DateTimeImmutable
+    {
+        try {
+            return new \DateTimeImmutable($value);
+        } catch (\Exception) {
+            throw InvalidTimeSlot::unparseable($value);
+        }
+    }
+
     private function instant(\DateTimeImmutable $moment): string
     {
         return $moment->format('U.u');

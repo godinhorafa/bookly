@@ -62,7 +62,19 @@ final readonly class Money
             throw InvalidMoney::invalidPercentage($percent);
         }
 
-        return new self(intdiv($this->amount * $percent + 50, 100), $this->currency);
+        return $this->ratio($percent, 100);
+    }
+
+    /**
+     * Multiplies by numerator/denominator, rounding half up, e.g. ratio(90, 60) for 90 minutes of an hourly rate.
+     */
+    public function ratio(int $numerator, int $denominator): self
+    {
+        if ($numerator < 0 || $denominator <= 0) {
+            throw InvalidMoney::invalidRatio($numerator, $denominator);
+        }
+
+        return new self(intdiv(2 * $this->amount * $numerator + $denominator, 2 * $denominator), $this->currency);
     }
 
     public function isZero(): bool

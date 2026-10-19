@@ -16,4 +16,9 @@ final class InvalidTimeSlot extends DomainException
             $start->format(DATE_ATOM),
         ));
     }
+
+    public static function unparseable(string $value): self
+    {
+        return new self("\"{$value}\" is not a valid date and time.");
+    }
 }

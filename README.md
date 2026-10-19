@@ -37,6 +37,7 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 
 | Concern | Approach |
 |---|---|
+| Repositories | Domain-owned ports, Eloquent adapters, `23P01` translated to `SlotUnavailable` ([ADR 0003](docs/adr/0003-repositories-with-contract-tests.md)) |
 | Overbooking | PostgreSQL `EXCLUDE USING gist` on a half-open `tstzrange`, partial on `status <> 'cancelled'` ([ADR 0002](docs/adr/0002-exclusion-constraint-for-overbooking.md)) |
 | Money | `Money` value object in minor units with a `Currency` enum, so no floats |
 | Time | `TimeSlot` value object, half-open `[start, end)`, normalised to UTC, DST-safe durations |
@@ -46,14 +47,19 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 
 | Suite | What it covers | Boots Laravel? | Database |
 |---|---|---|---|
-| `Unit` | Domain rules and value objects | No | None |
+| `Unit` | Domain rules, value objects and use cases (with in-memory repositories) | No | None |
 | `Arch` | Layer dependency rules, immutability, strict types | No | None |
 | `Integration` | Repositories and DB constraints | Yes | **Real PostgreSQL** (not SQLite) |
+| `Concurrency` | 8 parallel processes racing for one slot: exactly one wins | Yes | Real PostgreSQL |
 | `Feature` | HTTP endpoints end to end | Yes | Real PostgreSQL |
+
+The same **contract suite** (`tests/Contracts`) runs against the in-memory and
+the PostgreSQL repositories, so the fakes used in unit tests can't drift from
+production behaviour ([ADR 0003](docs/adr/0003-repositories-with-contract-tests.md)).
 
 ```bash
 composer test:unit         # fast feedback, no framework
-composer test:integration  # against PostgreSQL
+composer test:integration  # against PostgreSQL, including the concurrency test
 composer ci                # pint + rector + phpstan + all tests
 ```
 
@@ -72,13 +78,15 @@ Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `bt
 
 - [0001: Layered architecture with a framework-free domain](docs/adr/0001-layered-architecture-with-framework-free-domain.md)
 - [0002: PostgreSQL exclusion constraint to prevent overbooking](docs/adr/0002-exclusion-constraint-for-overbooking.md)
+- [0003: Repositories over direct Eloquent, verified by contract tests](docs/adr/0003-repositories-with-contract-tests.md)
 
 ## Roadmap
 
 - [x] Project foundation: layers, tooling, CI, Docker
 - [x] `Money` and `TimeSlot` value objects
 - [x] Overbooking prevented by an exclusion constraint, with integration tests
-- [ ] `Space` and `Booking` aggregates, `BookingRepository` port and Eloquent adapter
+- [x] `Space` and `Booking` aggregates, `BookSpace` use case, repositories with contract tests
+- [x] Concurrency test proving one winner under parallel load
 - [ ] Pricing rules (Strategy) composed into a pricing pipeline
 - [ ] Cancellation policies and refunds
 - [ ] Booking validation via composable Specifications

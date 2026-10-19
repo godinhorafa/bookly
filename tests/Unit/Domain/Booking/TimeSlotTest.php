@@ -63,3 +63,7 @@ it('counts real elapsed minutes across a DST change', function (): void {
 
     expect($slot->durationInMinutes())->toBe(180);
 });
+
+it('turns unparseable input into a domain exception', function (): void {
+    TimeSlot::fromStrings('not a date', '2026-11-02T10:00:00Z');
+})->throws(InvalidTimeSlot::class, '"not a date" is not a valid date and time.');
