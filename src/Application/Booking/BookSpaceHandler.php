@@ -9,12 +9,12 @@ use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
 use Domain\Pricing\Coupon;
 use Domain\Pricing\CouponRepository;
 use Domain\Pricing\PricingContext;
 use Domain\Pricing\PricingPipeline;
 use Domain\Shared\Clock;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 use Domain\Space\SpaceRepository;
 

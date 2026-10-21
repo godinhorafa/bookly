@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Domain\Cancellation;
 
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\Exception\InvalidCancellationPolicy;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 
 /**
  * Picks the most generous tier whose notice period the cancellation still meets.

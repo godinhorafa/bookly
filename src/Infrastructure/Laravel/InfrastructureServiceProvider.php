@@ -10,8 +10,8 @@ use Domain\Pricing\PricingPipeline;
 use Domain\Pricing\Rule\CouponDiscount;
 use Domain\Pricing\Rule\LongBookingDiscount;
 use Domain\Pricing\Rule\PeakHourSurcharge;
-use Domain\Pricing\Rule\PeakWindow;
 use Domain\Shared\Clock;
+use Domain\Shared\WeeklyWindow;
 use Domain\Space\SpaceRepository;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\ServiceProvider;
@@ -51,7 +51,7 @@ final class InfrastructureServiceProvider extends ServiceProvider
         return new PricingPipeline(
             new PeakHourSurcharge(
                 $config->integer('pricing.peak_hours.surcharge_percent'),
-                ...array_map(static fn (array $w): PeakWindow => new PeakWindow(...$w), $windows),
+                ...array_map(static fn (array $w): WeeklyWindow => new WeeklyWindow(...$w), $windows),
             ),
             new LongBookingDiscount(
                 $config->integer('pricing.long_booking.minimum_minutes'),

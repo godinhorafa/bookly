@@ -5,15 +5,15 @@ declare(strict_types=1);
 use Application\Booking\BookSpace;
 use Application\Booking\BookSpaceHandler;
 use Domain\Booking\BookingStatus;
-use Domain\Booking\Exception\InvalidTimeSlot;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
 use Domain\Pricing\Coupon;
 use Domain\Pricing\Exception\InvalidCoupon;
 use Domain\Pricing\PricingPipeline;
 use Domain\Pricing\Rule\CouponDiscount;
 use Domain\Pricing\Rule\PeakHourSurcharge;
-use Domain\Pricing\Rule\PeakWindow;
+use Domain\Shared\Exception\InvalidTimeSlot;
+use Domain\Shared\TimeSlot;
+use Domain\Shared\WeeklyWindow;
 use Domain\Space\Exception\SpaceNotFound;
 use Domain\Space\SpaceId;
 use Tests\Support\Builders;
@@ -31,7 +31,7 @@ beforeEach(function (): void {
         $this->spaces,
         $this->bookings,
         $this->coupons,
-        new PricingPipeline(new PeakHourSurcharge(25, PeakWindow::weekdays('18:00', '22:00')), new CouponDiscount),
+        new PricingPipeline(new PeakHourSurcharge(25, WeeklyWindow::weekdays('18:00', '22:00')), new CouponDiscount),
         $this->clock,
     );
 

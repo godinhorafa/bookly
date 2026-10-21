@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\CancellationPolicyType;
 use Domain\Cancellation\Exception\InvalidCancellationPolicy;
 use Domain\Cancellation\RefundTier;
 use Domain\Cancellation\TieredRefundPolicy;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 
 const SLOT_START = '2026-11-10T10:00:00Z';
 

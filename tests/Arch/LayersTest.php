@@ -6,7 +6,6 @@ use Domain\Booking\BookingCancellation;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\CustomerId;
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\RefundTier;
 use Domain\Cancellation\TieredRefundPolicy;
 use Domain\Pricing\Adjustment;
@@ -14,10 +13,11 @@ use Domain\Pricing\Coupon;
 use Domain\Pricing\CouponRepository;
 use Domain\Pricing\PricingRule;
 use Domain\Pricing\Quote;
-use Domain\Pricing\Rule\PeakWindow;
 use Domain\Shared\Clock;
 use Domain\Shared\Exception\DomainException;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
+use Domain\Shared\WeeklyWindow;
 use Domain\Space\Space;
 use Domain\Space\SpaceId;
 use Domain\Space\SpaceRepository;
@@ -47,15 +47,14 @@ arch('value objects are immutable')
 arch('pricing rules are interchangeable strategies')
     ->expect('Domain\Pricing\Rule')
     ->classes()
-    ->toImplement(PricingRule::class)
-    ->ignoring(PeakWindow::class);
+    ->toImplement(PricingRule::class);
 
 arch('pricing and cancellation value objects are immutable')
     ->expect([
         Quote::class,
         Adjustment::class,
         Coupon::class,
-        PeakWindow::class,
+        WeeklyWindow::class,
         RefundTier::class,
         TieredRefundPolicy::class,
         BookingCancellation::class,

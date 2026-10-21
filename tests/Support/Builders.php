@@ -7,10 +7,10 @@ namespace Tests\Support;
 use Domain\Booking\Booking;
 use Domain\Booking\BookingId;
 use Domain\Booking\CustomerId;
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\CancellationPolicyType;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 use Domain\Space\Space;
 use Domain\Space\SpaceId;
 

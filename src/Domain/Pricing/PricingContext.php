@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Domain\Pricing;
 
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 use Domain\Space\Space;
 
 /**

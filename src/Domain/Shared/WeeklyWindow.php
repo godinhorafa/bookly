@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Domain\Pricing\Rule;
+namespace Domain\Shared;
 
-use Domain\Booking\TimeSlot;
-use Domain\Pricing\Exception\InvalidPricingRule;
+use Domain\Shared\Exception\InvalidWeeklyWindow;
 
 /**
- * A recurring local-time window, e.g. weekdays 18:00-22:00.
- * Expressed in wall-clock time so it follows the space's time zone across DST changes.
+ * A recurring local-time window, e.g. weekdays 18:00-22:00. Used for peak hours
+ * and opening hours. Expressed in wall-clock time so it follows the space's time
+ * zone across DST changes.
  */
-final readonly class PeakWindow
+final readonly class WeeklyWindow
 {
     /** @var list<int> ISO-8601 weekdays, 1 = Monday ... 7 = Sunday */
     public array $weekdays;
@@ -26,14 +26,14 @@ final readonly class PeakWindow
     public function __construct(array $weekdays, string $start, string $end)
     {
         if ($weekdays === [] || array_diff($weekdays, range(1, 7)) !== []) {
-            throw InvalidPricingRule::invalidWeekdays();
+            throw InvalidWeeklyWindow::invalidWeekdays();
         }
 
         $this->startMinute = $this->parseTime($start);
         $this->endMinute = $this->parseTime($end);
 
         if ($this->endMinute <= $this->startMinute) {
-            throw InvalidPricingRule::emptyWindow($start, $end);
+            throw InvalidWeeklyWindow::emptyWindow($start, $end);
         }
 
         $this->weekdays = array_values(array_unique($weekdays));
@@ -79,7 +79,7 @@ final readonly class PeakWindow
     private function parseTime(string $time): int
     {
         if (preg_match('/^([01]\d|2[0-4]):([0-5]\d)$/', $time, $m) !== 1 || ($m[1] === '24' && $m[2] !== '00')) {
-            throw InvalidPricingRule::invalidTime($time);
+            throw InvalidWeeklyWindow::invalidTime($time);
         }
 
         return (int) $m[1] * 60 + (int) $m[2];

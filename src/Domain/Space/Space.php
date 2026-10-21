@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Domain\Space;
 
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\CancellationPolicyType;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 use Domain\Space\Exception\InvalidSpace;
 
 /**

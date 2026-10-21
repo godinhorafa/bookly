@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Domain\Booking;
+namespace Domain\Shared;
 
-use Domain\Booking\Exception\InvalidTimeSlot;
+use Domain\Shared\Exception\InvalidTimeSlot;
 
 /**
  * Half-open interval [start, end) normalised to UTC.

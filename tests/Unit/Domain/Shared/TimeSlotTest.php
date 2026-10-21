@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Domain\Booking\Exception\InvalidTimeSlot;
-use Domain\Booking\TimeSlot;
+use Domain\Shared\Exception\InvalidTimeSlot;
+use Domain\Shared\TimeSlot;
 
 it('normalises both ends to UTC', function (): void {
     $slot = TimeSlot::fromStrings('2026-11-02T10:00:00-03:00', '2026-11-02T11:30:00-03:00');

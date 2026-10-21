@@ -9,7 +9,7 @@ use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 /**

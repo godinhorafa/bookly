@@ -6,6 +6,7 @@ namespace Domain\Booking;
 
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 interface BookingRepository

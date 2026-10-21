@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Domain\Booking\TimeSlot;
 use Domain\Pricing\AdjustmentKind;
 use Domain\Pricing\Coupon;
 use Domain\Pricing\Exception\InvalidPricingRule;
@@ -11,9 +10,10 @@ use Domain\Pricing\Quote;
 use Domain\Pricing\Rule\CouponDiscount;
 use Domain\Pricing\Rule\LongBookingDiscount;
 use Domain\Pricing\Rule\PeakHourSurcharge;
-use Domain\Pricing\Rule\PeakWindow;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
+use Domain\Shared\WeeklyWindow;
 use Tests\Support\Builders;
 
 function pricingContext(string $start, string $end, ?Coupon $coupon = null): PricingContext
@@ -30,7 +30,7 @@ describe('peak hour surcharge', function (): void {
     it('charges the percentage on peak minutes only', function (): void {
         // Monday 17:00-19:30 local: 150 min, 90 of them after 18:00
         $context = pricingContext('2026-11-02T17:00:00-03:00', '2026-11-02T19:30:00-03:00');
-        $rule = new PeakHourSurcharge(25, PeakWindow::weekdays('18:00', '22:00'));
+        $rule = new PeakHourSurcharge(25, WeeklyWindow::weekdays('18:00', '22:00'));
 
         $quote = $rule->apply(baseQuote($context), $context);
 
@@ -44,7 +44,7 @@ describe('peak hour surcharge', function (): void {
 
     it('adds no line when nothing falls in a peak window', function (): void {
         $context = pricingContext('2026-11-02T09:00:00-03:00', '2026-11-02T11:00:00-03:00');
-        $rule = new PeakHourSurcharge(25, PeakWindow::weekdays('18:00', '22:00'));
+        $rule = new PeakHourSurcharge(25, WeeklyWindow::weekdays('18:00', '22:00'));
 
         $quote = $rule->apply(baseQuote($context), $context);
 
@@ -53,7 +53,7 @@ describe('peak hour surcharge', function (): void {
     });
 
     it('validates the percentage', function (int $percent): void {
-        new PeakHourSurcharge($percent, PeakWindow::weekdays('18:00', '22:00'));
+        new PeakHourSurcharge($percent, WeeklyWindow::weekdays('18:00', '22:00'));
     })->with([0, 101])->throws(InvalidPricingRule::class);
 });
 

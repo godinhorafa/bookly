@@ -7,7 +7,7 @@ use Domain\Booking\BookingId;
 use Domain\Booking\BookingStatus;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 use Tests\Contracts\BookingRepositoryFixture;
 use Tests\Support\Builders;
 
