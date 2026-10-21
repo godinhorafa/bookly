@@ -71,6 +71,9 @@ jobs:
 
       - name: Integration & feature tests
         run: vendor/bin/pest --testsuite=Integration,Feature
+        env:
+          # Optional: when set, the payment gateway contract also runs against Stripe test mode.
+          STRIPE_TEST_SECRET: ${{ secrets.STRIPE_TEST_SECRET }}
 
       - name: Concurrency tests (parallel processes)
         run: vendor/bin/pest --testsuite=Concurrency
