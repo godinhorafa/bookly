@@ -15,5 +15,6 @@ final readonly class BookSpace
         public int $customerId,
         public string $start,
         public string $end,
+        public ?string $couponCode = null,
     ) {}
 }

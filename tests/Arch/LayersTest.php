@@ -2,10 +2,20 @@
 
 declare(strict_types=1);
 
+use Domain\Booking\BookingCancellation;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\CustomerId;
 use Domain\Booking\TimeSlot;
+use Domain\Cancellation\RefundTier;
+use Domain\Cancellation\TieredRefundPolicy;
+use Domain\Pricing\Adjustment;
+use Domain\Pricing\Coupon;
+use Domain\Pricing\CouponRepository;
+use Domain\Pricing\PricingRule;
+use Domain\Pricing\Quote;
+use Domain\Pricing\Rule\PeakWindow;
+use Domain\Shared\Clock;
 use Domain\Shared\Exception\DomainException;
 use Domain\Shared\Money;
 use Domain\Space\Space;
@@ -34,8 +44,31 @@ arch('value objects are immutable')
     ->toBeReadonly()
     ->toBeFinal();
 
+arch('pricing rules are interchangeable strategies')
+    ->expect('Domain\Pricing\Rule')
+    ->classes()
+    ->toImplement(PricingRule::class)
+    ->ignoring(PeakWindow::class);
+
+arch('pricing and cancellation value objects are immutable')
+    ->expect([
+        Quote::class,
+        Adjustment::class,
+        Coupon::class,
+        PeakWindow::class,
+        RefundTier::class,
+        TieredRefundPolicy::class,
+        BookingCancellation::class,
+    ])
+    ->toBeReadonly()
+    ->toBeFinal();
+
+arch('the domain reads time through the Clock port only')
+    ->expect('Domain')
+    ->not->toUse(['time', 'microtime', 'date', 'now']);
+
 arch('repositories are ports owned by the domain')
-    ->expect([BookingRepository::class, SpaceRepository::class])
+    ->expect([BookingRepository::class, SpaceRepository::class, CouponRepository::class, Clock::class])
     ->toBeInterfaces();
 
 arch('eloquent stays inside infrastructure')
@@ -43,7 +76,13 @@ arch('eloquent stays inside infrastructure')
     ->toOnlyBeUsedIn(['Infrastructure', 'App', 'Database', 'Tests']);
 
 arch('domain exceptions share a common base')
-    ->expect(['Domain\Shared\Exception', 'Domain\Booking\Exception', 'Domain\Space\Exception'])
+    ->expect([
+        'Domain\Shared\Exception',
+        'Domain\Booking\Exception',
+        'Domain\Space\Exception',
+        'Domain\Pricing\Exception',
+        'Domain\Cancellation\Exception',
+    ])
     ->classes()
     ->toExtend(DomainException::class)
     ->ignoring(DomainException::class);

@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $total_amount
  * @property string $currency
  * @property string $period tstzrange literal, see TstzRange
+ * @property string|null $cancelled_at timestamptz, see Timestamptz
+ * @property int|null $refund_amount
  */
 #[Unguarded]
 #[Table(name: 'bookings', keyType: 'string')]
@@ -30,6 +32,7 @@ final class BookingModel extends Model
         return [
             'user_id' => 'integer',
             'total_amount' => 'integer',
+            'refund_amount' => 'integer',
         ];
     }
 }

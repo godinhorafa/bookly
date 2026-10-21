@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $capacity
  * @property int $hourly_rate_amount
  * @property string $currency
+ * @property string $cancellation_policy
  */
 #[Unguarded]
 #[Table(name: 'spaces', keyType: 'string')]

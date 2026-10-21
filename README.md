@@ -39,6 +39,8 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 |---|---|
 | Repositories | Domain-owned ports, Eloquent adapters, `23P01` translated to `SlotUnavailable` ([ADR 0003](docs/adr/0003-repositories-with-contract-tests.md)) |
 | Overbooking | PostgreSQL `EXCLUDE USING gist` on a half-open `tstzrange`, partial on `status <> 'cancelled'` ([ADR 0002](docs/adr/0002-exclusion-constraint-for-overbooking.md)) |
+| Pricing | `PricingRule` strategies (peak hours in the space's local time, long-booking discount, coupons) composed by an ordered `PricingPipeline` that returns an itemised `Quote` ([ADR 0004](docs/adr/0004-pricing-and-cancellation-as-strategies.md)) |
+| Cancellation | `CancellationPolicy` strategies chosen per space (flexible / moderate / strict / non-refundable), tiered refunds, time injected through a `Clock` port |
 | Money | `Money` value object in minor units with a `Currency` enum, so no floats |
 | Time | `TimeSlot` value object, half-open `[start, end)`, normalised to UTC, DST-safe durations |
 | Code style & safety | `declare(strict_types=1)` everywhere, `readonly` value objects, PHPStan **level max**, Pint, Rector |
@@ -79,6 +81,7 @@ Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `bt
 - [0001: Layered architecture with a framework-free domain](docs/adr/0001-layered-architecture-with-framework-free-domain.md)
 - [0002: PostgreSQL exclusion constraint to prevent overbooking](docs/adr/0002-exclusion-constraint-for-overbooking.md)
 - [0003: Repositories over direct Eloquent, verified by contract tests](docs/adr/0003-repositories-with-contract-tests.md)
+- [0004: Pricing rules and cancellation policies as strategies](docs/adr/0004-pricing-and-cancellation-as-strategies.md)
 
 ## Roadmap
 
@@ -87,8 +90,9 @@ Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `bt
 - [x] Overbooking prevented by an exclusion constraint, with integration tests
 - [x] `Space` and `Booking` aggregates, `BookSpace` use case, repositories with contract tests
 - [x] Concurrency test proving one winner under parallel load
-- [ ] Pricing rules (Strategy) composed into a pricing pipeline
-- [ ] Cancellation policies and refunds
+- [x] Pricing rules (Strategy) composed into a pricing pipeline, with itemised quotes
+- [x] Cancellation policies and refunds
+- [ ] Recurring bookings (weekly series) with a recurrence discount
 - [ ] Booking validation via composable Specifications
 - [ ] Payment gateway port with Fake and Stripe adapters, plus contract tests
 - [ ] Domain events → e-mail, webhooks, audit (transactional outbox)
