@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infrastructure\Persistence\Eloquent;
 
+use Domain\Cancellation\CancellationPolicyType;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
 use Domain\Space\Exception\SpaceNotFound;
@@ -28,6 +29,7 @@ final class EloquentSpaceRepository implements SpaceRepository
             $model->timezone,
             $model->capacity,
             Money::of($model->hourly_rate_amount, Currency::from($model->currency)),
+            CancellationPolicyType::from($model->cancellation_policy),
         );
     }
 
@@ -39,6 +41,7 @@ final class EloquentSpaceRepository implements SpaceRepository
             'capacity' => $space->capacity,
             'hourly_rate_amount' => $space->hourlyRate->amount,
             'currency' => $space->hourlyRate->currency->value,
+            'cancellation_policy' => $space->cancellationPolicy->value,
         ]);
     }
 }

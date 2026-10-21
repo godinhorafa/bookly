@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infrastructure\Persistence\Eloquent;
 
 use Domain\Booking\Booking;
+use Domain\Booking\BookingCancellation;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\BookingStatus;
@@ -18,6 +19,7 @@ use Domain\Space\SpaceId;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
 use Infrastructure\Persistence\Eloquent\Models\BookingModel;
+use Infrastructure\Persistence\Postgres\Timestamptz;
 use Infrastructure\Persistence\Postgres\TstzRange;
 
 final readonly class EloquentBookingRepository implements BookingRepository
@@ -52,6 +54,8 @@ final readonly class EloquentBookingRepository implements BookingRepository
                     'total_amount' => $booking->price->amount,
                     'currency' => $booking->price->currency->value,
                     'period' => TstzRange::fromTimeSlot($booking->slot),
+                    'cancelled_at' => Timestamptz::toDatabase($booking->cancellation()?->cancelledAt),
+                    'refund_amount' => $booking->cancellation()?->refund->amount,
                 ],
             ));
         } catch (QueryException $e) {
@@ -83,13 +87,19 @@ final readonly class EloquentBookingRepository implements BookingRepository
 
     private function toDomain(BookingModel $model): Booking
     {
+        $currency = Currency::from($model->currency);
+        $cancelledAt = Timestamptz::fromDatabase($model->cancelled_at);
+
         return Booking::reconstitute(
             BookingId::fromString($model->id),
             SpaceId::fromString($model->space_id),
             new CustomerId($model->user_id),
             TstzRange::toTimeSlot($model->period),
-            Money::of($model->total_amount, Currency::from($model->currency)),
+            Money::of($model->total_amount, $currency),
             BookingStatus::from($model->status),
+            $cancelledAt instanceof \DateTimeImmutable && $model->refund_amount !== null
+                ? new BookingCancellation($cancelledAt, Money::of($model->refund_amount, $currency))
+                : null,
         );
     }
 }

@@ -92,7 +92,7 @@ function bookingRepositoryContract(Closure $setUp): void
         $first = Builders::booking($fx->space, $fx->customer);
         $fx->repository->save($first);
 
-        $first->cancel();
+        Builders::cancel($first);
         $fx->repository->save($first);
         $fx->repository->save(Builders::booking($fx->space, $fx->customer));
 
@@ -105,7 +105,7 @@ function bookingRepositoryContract(Closure $setUp): void
         $late = Builders::booking($fx->space, $fx->customer, '2026-11-02T14:00:00Z', '2026-11-02T15:00:00Z');
         $early = Builders::booking($fx->space, $fx->customer, '2026-11-02T09:00:00Z', '2026-11-02T10:30:00Z');
         $cancelled = Builders::booking($fx->space, $fx->customer, '2026-11-02T12:00:00Z', '2026-11-02T13:00:00Z');
-        $cancelled->cancel();
+        Builders::cancel($cancelled);
         $elsewhere = Builders::booking($fx->otherSpace, $fx->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z');
         $outside = Builders::booking($fx->space, $fx->customer, '2026-11-02T16:00:00Z', '2026-11-02T17:00:00Z');
 
@@ -117,5 +117,31 @@ function bookingRepositoryContract(Closure $setUp): void
 
         expect(array_map(static fn (Booking $b): string => $b->id->value, $found))
             ->toBe([$early->id->value, $late->id->value]);
+    });
+
+    it('persists the cancellation time and refund', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $booking = Builders::booking($fx->space, $fx->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z');
+        $booking->confirm();
+        $fx->repository->save($booking);
+
+        // 36h before the start under the moderate policy: 50% back
+        Builders::cancel($booking, '2026-10-31T22:00:00-03:00');
+        $fx->repository->save($booking);
+
+        $cancellation = $fx->repository->get($booking->id)->cancellation();
+
+        expect($cancellation?->cancelledAt->format(DATE_ATOM))->toBe('2026-11-01T01:00:00+00:00')
+            ->and($cancellation?->refund->amount)->toBe(2_500);
+    });
+
+    it('has no cancellation details for active bookings', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $booking = Builders::booking($fx->space, $fx->customer);
+        $fx->repository->save($booking);
+
+        expect($fx->repository->get($booking->id)->cancellation())->toBeNull();
     });
 }

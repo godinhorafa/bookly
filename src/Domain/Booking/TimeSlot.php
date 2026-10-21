@@ -41,6 +41,18 @@ final readonly class TimeSlot
         return $this->start < $other->end && $other->start < $this->end;
     }
 
+    /**
+     * The part of this slot that also lies within the other one, if any.
+     */
+    public function intersection(self $other): ?self
+    {
+        if (! $this->overlaps($other)) {
+            return null;
+        }
+
+        return new self(max($this->start, $other->start), min($this->end, $other->end));
+    }
+
     public function contains(\DateTimeImmutable $instant): bool
     {
         return $instant >= $this->start && $instant < $this->end;
@@ -57,9 +69,6 @@ final readonly class TimeSlot
             && $this->instant($this->end) === $this->instant($other->end);
     }
 
-    /**
-     * Compares by point in time, not object identity (=== on objects checks identity).
-     */
     private static function parse(string $value): \DateTimeImmutable
     {
         try {
@@ -69,6 +78,9 @@ final readonly class TimeSlot
         }
     }
 
+    /**
+     * Compares by point in time, not object identity (=== on objects checks identity).
+     */
     private function instant(\DateTimeImmutable $moment): string
     {
         return $moment->format('U.u');

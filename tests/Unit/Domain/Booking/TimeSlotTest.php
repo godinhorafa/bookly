@@ -67,3 +67,11 @@ it('counts real elapsed minutes across a DST change', function (): void {
 it('turns unparseable input into a domain exception', function (): void {
     TimeSlot::fromStrings('not a date', '2026-11-02T10:00:00Z');
 })->throws(InvalidTimeSlot::class, '"not a date" is not a valid date and time.');
+
+it('computes the intersection of two slots', function (): void {
+    $slot = TimeSlot::fromStrings('2026-11-02T10:00:00Z', '2026-11-02T12:00:00Z');
+
+    expect($slot->intersection(TimeSlot::fromStrings('2026-11-02T11:00:00Z', '2026-11-02T13:00:00Z'))?->equals(TimeSlot::fromStrings('2026-11-02T11:00:00Z', '2026-11-02T12:00:00Z')))->toBeTrue()
+        ->and($slot->intersection(TimeSlot::fromStrings('2026-11-02T10:30:00Z', '2026-11-02T11:00:00Z'))?->durationInMinutes())->toBe(30)
+        ->and($slot->intersection(TimeSlot::fromStrings('2026-11-02T12:00:00Z', '2026-11-02T13:00:00Z')))->toBeNull();
+});

@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use Domain\Booking\Booking;
 use Domain\Booking\BookingStatus;
 use Domain\Booking\CustomerId;
+use Domain\Booking\Exception\BookingAlreadyStarted;
 use Domain\Booking\Exception\InvalidBookingTransition;
+use Domain\Cancellation\CancellationPolicyType;
 use Domain\Space\SpaceId;
 use Tests\Support\Builders;
 
@@ -17,7 +20,8 @@ it('starts as pending and holds its slot', function (): void {
     $booking = Builders::booking($this->space, $this->customer);
 
     expect($booking->status())->toBe(BookingStatus::Pending)
-        ->and($booking->holdsSlot())->toBeTrue();
+        ->and($booking->holdsSlot())->toBeTrue()
+        ->and($booking->cancellation())->toBeNull();
 });
 
 it('can be confirmed and then cancelled', function (): void {
@@ -26,34 +30,62 @@ it('can be confirmed and then cancelled', function (): void {
     $booking->confirm();
     expect($booking->status())->toBe(BookingStatus::Confirmed);
 
-    $booking->cancel();
+    Builders::cancel($booking);
     expect($booking->status())->toBe(BookingStatus::Cancelled)
         ->and($booking->holdsSlot())->toBeFalse();
 });
 
-it('can be cancelled while pending, e.g. when payment fails', function (): void {
+it('refunds a confirmed booking according to the policy', function (string $cancelledAt, int $refund): void {
+    // Slot starts 2026-11-02T10:00Z and costs BRL 50.00
+    $booking = Builders::booking($this->space, $this->customer);
+    $booking->confirm();
+
+    $returned = $booking->cancel(new DateTimeImmutable($cancelledAt), CancellationPolicyType::Moderate->policy());
+
+    expect($returned->amount)->toBe($refund)
+        ->and($booking->cancellation()?->refund->amount)->toBe($refund)
+        ->and($booking->cancellation()?->cancelledAt->getTimestamp())->toBe((new DateTimeImmutable($cancelledAt))->getTimestamp());
+})->with([
+    '3 days before' => ['2026-10-30T10:00:00Z', 5_000],
+    'exactly 48h before' => ['2026-10-31T10:00:00Z', 5_000],
+    '30h before' => ['2026-11-01T04:00:00Z', 2_500],
+    '2h before' => ['2026-11-02T08:00:00Z', 0],
+]);
+
+it('refunds nothing for a pending booking, which was never paid', function (): void {
     $booking = Builders::booking($this->space, $this->customer);
 
-    $booking->cancel();
+    $refund = $booking->cancel(new DateTimeImmutable('2026-10-01T00:00:00Z'), CancellationPolicyType::Flexible->policy());
 
-    expect($booking->status())->toBe(BookingStatus::Cancelled);
+    expect($refund->isZero())->toBeTrue()
+        ->and($booking->status())->toBe(BookingStatus::Cancelled);
 });
+
+it('cannot be cancelled once the slot has started', function (string $at): void {
+    $booking = Builders::booking($this->space, $this->customer);
+    $booking->confirm();
+
+    $booking->cancel(new DateTimeImmutable($at), CancellationPolicyType::Flexible->policy());
+})->with([
+    'at the start' => ['2026-11-02T10:00:00Z'],
+    'midway' => ['2026-11-02T10:30:00Z'],
+])->throws(BookingAlreadyStarted::class);
 
 it('rejects invalid transitions', function (Closure $act): void {
     $booking = Builders::booking($this->space, $this->customer);
 
     $act($booking);
 })->with([
-    'confirm twice' => [function ($b): void {
+    'confirm twice' => [function (Booking $b): void {
         $b->confirm();
         $b->confirm();
     }],
-    'cancel twice' => [function ($b): void {
-        $b->cancel();
-        $b->cancel();
+    'cancel twice' => [function (Booking $b): void {
+        Builders::cancel($b);
+        Builders::cancel($b);
     }],
-    'confirm after cancel' => [function ($b): void {
-        $b->cancel();
+    'confirm after cancel' => [function (Booking $b): void {
+        Builders::cancel($b);
         $b->confirm();
     }],
 ])->throws(InvalidBookingTransition::class);
@@ -63,8 +95,7 @@ it('conflicts only with active, overlapping bookings of the same space', functio
     $overlapping = Builders::booking($this->space, $this->customer, '2026-11-02T10:30:00Z', '2026-11-02T11:30:00Z');
     $adjacent = Builders::booking($this->space, $this->customer, '2026-11-02T11:00:00Z', '2026-11-02T12:00:00Z');
     $elsewhere = Builders::booking(SpaceId::generate(), $this->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z');
-    $cancelled = Builders::booking($this->space, $this->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z');
-    $cancelled->cancel();
+    $cancelled = Builders::cancel(Builders::booking($this->space, $this->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z'));
 
     expect($booking->conflictsWith($overlapping))->toBeTrue()
         ->and($booking->conflictsWith($adjacent))->toBeFalse()

@@ -44,6 +44,8 @@ function book(string $spaceId, int $userId, string $start, string $end, string $
         'total_amount' => 5_000,
         'currency' => 'BRL',
         'period' => TstzRange::fromTimeSlot(TimeSlot::fromStrings($start, $end)),
+        'cancelled_at' => $status === 'cancelled' ? '2026-10-01 00:00:00+00' : null,
+        'refund_amount' => $status === 'cancelled' ? 0 : null,
     ]));
 }
 
