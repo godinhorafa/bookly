@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Application\Payment;
 
+use Application\Event\Outbox;
 use Application\Transaction;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
@@ -15,6 +16,7 @@ use Domain\Payment\Payment;
 use Domain\Payment\PaymentGateways;
 use Domain\Payment\PaymentId;
 use Domain\Payment\PaymentRepository;
+use Domain\Shared\Clock;
 
 /**
  * Charges a pending booking and confirms it.
@@ -31,7 +33,9 @@ final readonly class PayForBookingHandler
         private BookingRepository $bookings,
         private PaymentRepository $payments,
         private PaymentGateways $gateways,
+        private Outbox $outbox,
         private Transaction $transaction,
+        private Clock $clock,
     ) {}
 
     public function handle(PayForBooking $command): PaymentOutcome
@@ -50,7 +54,10 @@ final readonly class PayForBookingHandler
         // Fully discounted bookings have nothing to charge (providers reject zero amounts).
         if ($booking->price->isZero()) {
             $booking->confirm();
-            $this->bookings->save($booking);
+            $this->transaction->run(function () use ($booking): void {
+                $this->bookings->save($booking);
+                $this->outbox->append($this->clock->now(), ...$booking->releaseEvents());
+            });
 
             return PaymentOutcome::confirmed(null);
         }
@@ -74,6 +81,7 @@ final readonly class PayForBookingHandler
         $this->transaction->run(function () use ($payment, $booking): void {
             $this->payments->save($payment);
             $this->bookings->save($booking);
+            $this->outbox->append($this->clock->now(), ...$booking->releaseEvents());
         });
 
         return $payment->succeeded()

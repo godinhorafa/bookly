@@ -39,7 +39,10 @@ final class InMemoryBookingRepository implements BookingRepository
             }
         }
 
-        $this->bookings[$booking->id->value] = clone $booking;
+        // Like a database row, the stored copy carries state, not pending events.
+        $stored = clone $booking;
+        $stored->releaseEvents();
+        $this->bookings[$booking->id->value] = $stored;
     }
 
     public function findOverlapping(SpaceId $spaceId, TimeSlot $slot): array

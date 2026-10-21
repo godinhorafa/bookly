@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infrastructure\Laravel;
 
+use Application\Event\EventSubscriber;
+use Application\Event\Outbox;
+use Application\Event\OutboxRelay;
 use Application\Transaction;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\Specification\AlignedToGrid;
@@ -28,6 +31,11 @@ use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
 use Infrastructure\Clock\SystemClock;
+use Infrastructure\Event\PostgresOutbox;
+use Infrastructure\Laravel\Console\RelayOutboxCommand;
+use Infrastructure\Notification\AuditTrailSubscriber;
+use Infrastructure\Notification\BookingConfirmationEmailSubscriber;
+use Infrastructure\Notification\WebhookSubscriber;
 use Infrastructure\Payment\FakePaymentGateway;
 use Infrastructure\Payment\StripePaymentGateway;
 use Infrastructure\Persistence\Eloquent\EloquentBookingRepository;
@@ -49,6 +57,7 @@ final class InfrastructureServiceProvider extends ServiceProvider
         CouponRepository::class => EloquentCouponRepository::class,
         PaymentRepository::class => EloquentPaymentRepository::class,
         Transaction::class => LaravelTransaction::class,
+        Outbox::class => PostgresOutbox::class,
     ];
 
     /** @var array<class-string, class-string> */
@@ -63,6 +72,41 @@ final class InfrastructureServiceProvider extends ServiceProvider
         $this->app->singleton(PricingPipeline::class, fn (): PricingPipeline => $this->pricingPipeline($this->app->make(Config::class)));
         $this->app->singleton(BookingRules::class, fn (): BookingRules => $this->bookingRules($this->app->make(Config::class)));
         $this->app->singleton(PaymentGateways::class, fn (): PaymentGateways => $this->paymentGateways($this->app->make(Config::class)));
+        $this->app->bind(OutboxRelay::class, fn (): OutboxRelay => new OutboxRelay(
+            $this->app->make(Outbox::class),
+            $this->app->make(Clock::class),
+            ...$this->eventSubscribers($this->app->make(Config::class)),
+        ));
+    }
+
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([RelayOutboxCommand::class]);
+        }
+    }
+
+    /**
+     * The observers of domain events. Adding a reaction to an event means adding one here.
+     *
+     * @return list<EventSubscriber>
+     */
+    private function eventSubscribers(Config $config): array
+    {
+        $subscribers = [
+            $this->app->make(AuditTrailSubscriber::class),
+            $this->app->make(BookingConfirmationEmailSubscriber::class),
+        ];
+
+        $secret = $config->string('webhooks.secret');
+        /** @var list<string> $endpoints */
+        $endpoints = $config->array('webhooks.endpoints');
+
+        foreach ($secret === '' ? [] : $endpoints as $url) {
+            $subscribers[] = new WebhookSubscriber($this->app->make(Http::class), $this->app->make(Clock::class), $url, $secret);
+        }
+
+        return $subscribers;
     }
 
     /**

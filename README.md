@@ -43,6 +43,7 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 | Cancellation | `CancellationPolicy` strategies chosen per space (flexible / moderate / strict / non-refundable), tiered refunds, time injected through a `Clock` port |
 | Booking rules | Composable **Specifications** (`and` / `or` / `not`): notice, horizon, duration, 15-min grid and opening hours in the space's local time, per-customer cap. Every violation is reported at once ([ADR 0005](docs/adr/0005-booking-rules-as-specifications.md)) |
 | Payments | `PaymentGateway` port with **Stripe** (REST, no SDK) and **Fake** adapters behind one contract suite that also runs against real Stripe test mode. Deterministic idempotency keys make retries safe ([ADR 0006](docs/adr/0006-payment-gateway-port-and-adapters.md)) |
+| Domain events | Aggregates record events; a **transactional outbox** stores them with the change, and a relay delivers them (**Observer**) to audit, e-mail and HMAC-signed webhooks: at least once, tracked per subscriber, ordered per booking, safe with concurrent relays (`SKIP LOCKED`) ([ADR 0007](docs/adr/0007-domain-events-and-transactional-outbox.md)) |
 | Money | `Money` value object in minor units with a `Currency` enum, so no floats |
 | Time | `TimeSlot` value object, half-open `[start, end)`, normalised to UTC, DST-safe durations |
 | Code style & safety | `declare(strict_types=1)` everywhere, `readonly` value objects, PHPStan **level max**, Pint, Rector |
@@ -86,6 +87,7 @@ Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `bt
 - [0004: Pricing rules and cancellation policies as strategies](docs/adr/0004-pricing-and-cancellation-as-strategies.md)
 - [0005: Booking rules as composable specifications](docs/adr/0005-booking-rules-as-specifications.md)
 - [0006: Payment gateway as a port with adapters and a shared contract](docs/adr/0006-payment-gateway-port-and-adapters.md)
+- [0007: Domain events delivered through a transactional outbox](docs/adr/0007-domain-events-and-transactional-outbox.md)
 
 ## Roadmap
 
@@ -100,7 +102,7 @@ Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `bt
 - [x] Booking validation via composable Specifications, opening hours per space
 - [x] Payment gateway port with Fake and Stripe adapters, plus contract tests
 - [ ] Expire unpaid bookings after a few minutes
-- [ ] Domain events → e-mail, webhooks, audit (transactional outbox)
+- [x] Domain events → e-mail, webhooks, audit (transactional outbox)
 - [ ] REST API with OpenAPI docs and feature tests
 - [ ] React + TypeScript dashboard, Playwright E2E
 - [ ] NestJS real-time notification service (WebSocket)

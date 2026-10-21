@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Application\Booking;
 
+use Application\Event\Outbox;
+use Application\Transaction;
 use Domain\Booking\Booking;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
@@ -28,6 +30,8 @@ final readonly class BookSpaceHandler
         private CouponRepository $coupons,
         private PricingPipeline $pricing,
         private BookingRules $rules,
+        private Outbox $outbox,
+        private Transaction $transaction,
         private Clock $clock,
     ) {}
 
@@ -66,7 +70,10 @@ final readonly class BookSpaceHandler
             $quote->total,
         );
 
-        $this->bookings->save($booking);
+        $this->transaction->run(function () use ($booking, $now): void {
+            $this->bookings->save($booking);
+            $this->outbox->append($now, ...$booking->releaseEvents());
+        });
 
         return new BookSpaceResult($booking->id, $quote);
     }

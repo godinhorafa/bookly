@@ -20,8 +20,10 @@ use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 use Infrastructure\Payment\FakePaymentGateway;
 use Tests\Support\Builders;
+use Tests\Support\FrozenClock;
 use Tests\Support\InlineTransaction;
 use Tests\Support\InMemory\InMemoryBookingRepository;
+use Tests\Support\InMemory\InMemoryOutbox;
 use Tests\Support\InMemory\InMemoryPaymentRepository;
 
 beforeEach(function (): void {
@@ -29,7 +31,8 @@ beforeEach(function (): void {
     $this->payments = new InMemoryPaymentRepository;
     $this->gateway = new FakePaymentGateway;
     $this->transaction = new InlineTransaction;
-    $this->handler = new PayForBookingHandler($this->bookings, $this->payments, new PaymentGateways($this->gateway), $this->transaction);
+    $this->outbox = new InMemoryOutbox;
+    $this->handler = new PayForBookingHandler($this->bookings, $this->payments, new PaymentGateways($this->gateway), $this->outbox, $this->transaction, new FrozenClock);
 
     $this->booking = Builders::booking(SpaceId::generate(), new CustomerId(42)); // BRL 50.00, pending
     $this->bookings->save($this->booking);
@@ -111,3 +114,11 @@ it('refuses to pay twice', function (): void {
 it('hides bookings that belong to someone else', function (): void {
     pay(customer: 7);
 })->throws(BookingNotFound::class);
+
+it('records booking.confirmed only when the payment succeeds', function (): void {
+    pay('pm_card_chargeDeclined');
+    expect($this->outbox->names())->toBe([]);
+
+    pay('pm_card_visa');
+    expect($this->outbox->names())->toBe(['booking.confirmed']);
+});

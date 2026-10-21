@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Domain\Booking;
 
+use Domain\Booking\Event\BookingCancelled;
+use Domain\Booking\Event\BookingConfirmed;
+use Domain\Booking\Event\BookingRequested;
 use Domain\Booking\Exception\BookingAlreadyStarted;
 use Domain\Booking\Exception\InvalidBookingTransition;
 use Domain\Cancellation\CancellationPolicy;
+use Domain\Shared\Event\RecordsEvents;
 use Domain\Shared\Money;
 use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
@@ -17,6 +21,8 @@ use Domain\Space\SpaceId;
  */
 final class Booking
 {
+    use RecordsEvents;
+
     private function __construct(
         public readonly BookingId $id,
         public readonly SpaceId $spaceId,
@@ -34,7 +40,10 @@ final class Booking
         TimeSlot $slot,
         Money $price,
     ): self {
-        return new self($id, $spaceId, $customerId, $slot, $price, BookingStatus::Pending);
+        $booking = new self($id, $spaceId, $customerId, $slot, $price, BookingStatus::Pending);
+        $booking->record(BookingRequested::of($booking));
+
+        return $booking;
     }
 
     /**
@@ -60,6 +69,7 @@ final class Booking
     public function confirm(): void
     {
         $this->transitionTo(BookingStatus::Confirmed);
+        $this->record(BookingConfirmed::of($this));
     }
 
     /**
@@ -80,6 +90,7 @@ final class Booking
 
         $this->status = BookingStatus::Cancelled;
         $this->cancellation = new BookingCancellation($at, $refund);
+        $this->record(BookingCancelled::of($this, $refund));
 
         return $refund;
     }

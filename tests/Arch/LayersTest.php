@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Application\Event\EventSubscriber;
 use Application\Transaction;
 use Domain\Booking\BookingCancellation;
 use Domain\Booking\BookingId;
@@ -20,6 +21,7 @@ use Domain\Pricing\CouponRepository;
 use Domain\Pricing\PricingRule;
 use Domain\Pricing\Quote;
 use Domain\Shared\Clock;
+use Domain\Shared\Event\DomainEvent;
 use Domain\Shared\Exception\DomainException;
 use Domain\Shared\Money;
 use Domain\Shared\TimeSlot;
@@ -27,6 +29,8 @@ use Domain\Shared\WeeklyWindow;
 use Domain\Space\Space;
 use Domain\Space\SpaceId;
 use Domain\Space\SpaceRepository;
+use Infrastructure\Notification\BookingConfirmedMail;
+use Infrastructure\Notification\WebhookSignature;
 
 /*
  * Dependency rule: Domain <- Application <- Infrastructure / App (HTTP).
@@ -87,6 +91,19 @@ arch('payment providers are adapters behind the PaymentGateway port')
 arch('HTTP clients stay in infrastructure')
     ->expect('Illuminate\Http')
     ->toOnlyBeUsedIn(['Infrastructure', 'App', 'Tests']);
+
+arch('domain events are immutable, serialisable facts')
+    ->expect('Domain\Booking\Event')
+    ->classes()
+    ->toImplement(DomainEvent::class)
+    ->toBeReadonly()
+    ->toBeFinal();
+
+arch('notification subscribers observe stored events')
+    ->expect('Infrastructure\Notification')
+    ->classes()
+    ->toImplement(EventSubscriber::class)
+    ->ignoring([BookingConfirmedMail::class, WebhookSignature::class]);
 
 arch('the domain reads time through the Clock port only')
     ->expect('Domain')

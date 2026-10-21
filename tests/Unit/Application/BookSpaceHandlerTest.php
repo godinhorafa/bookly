@@ -24,8 +24,10 @@ use Domain\Space\Exception\SpaceNotFound;
 use Domain\Space\SpaceId;
 use Tests\Support\Builders;
 use Tests\Support\FrozenClock;
+use Tests\Support\InlineTransaction;
 use Tests\Support\InMemory\InMemoryBookingRepository;
 use Tests\Support\InMemory\InMemoryCouponRepository;
+use Tests\Support\InMemory\InMemoryOutbox;
 use Tests\Support\InMemory\InMemorySpaceRepository;
 
 beforeEach(function (): void {
@@ -39,6 +41,8 @@ beforeEach(function (): void {
         $this->coupons,
         new PricingPipeline(new PeakHourSurcharge(25, WeeklyWindow::weekdays('18:00', '22:00')), new CouponDiscount),
         new BookingRules((new StartsWithMinimumNotice(60))->and(new AlignedToGrid(15), new BelowActiveBookingLimit(2))),
+        $this->outbox = new InMemoryOutbox,
+        new InlineTransaction,
         $this->clock,
     );
 
@@ -121,3 +125,20 @@ it('enforces the per-customer limit on upcoming bookings', function (): void {
 
     $this->handler->handle(bookCommand($this->space->id->value, '2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z'));
 })->throws(BookingRulesViolated::class, 'A customer can hold at most 2 upcoming bookings.');
+
+it('records a booking.requested event with the booking', function (): void {
+    $result = $this->handler->handle(bookCommand($this->space->id->value));
+
+    $event = $this->outbox->claimDue($this->clock->now(), 10, 60)[0];
+    expect($this->outbox->names())->toBe(['booking.requested'])
+        ->and($event->aggregateId)->toBe($result->bookingId->value)
+        ->and($event->payload['price_amount'])->toBe($result->quote->total->amount);
+});
+
+it('records nothing when the booking is rejected', function (): void {
+    $this->handler->handle(bookCommand($this->space->id->value));
+
+    expect(fn () => $this->handler->handle(bookCommand($this->space->id->value)))->toThrow(SlotUnavailable::class);
+
+    expect($this->outbox->names())->toBe(['booking.requested']);
+});
