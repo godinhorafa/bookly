@@ -50,6 +50,26 @@ final readonly class WeeklyWindow
     }
 
     /**
+     * Whether both windows share at least one minute on a common weekday.
+     */
+    public function overlaps(self $other): bool
+    {
+        return array_intersect($this->weekdays, $other->weekdays) !== []
+            && $this->startMinute < $other->endMinute
+            && $other->startMinute < $this->endMinute;
+    }
+
+    public function startTime(): string
+    {
+        return $this->format($this->startMinute);
+    }
+
+    public function endTime(): string
+    {
+        return $this->format($this->endMinute);
+    }
+
+    /**
      * Minutes of the slot that fall inside this window, evaluated in the given time zone.
      */
     public function minutesWithin(TimeSlot $slot, \DateTimeZone $timezone): int
@@ -68,6 +88,11 @@ final readonly class WeeklyWindow
         }
 
         return $minutes;
+    }
+
+    private function format(int $minuteOfDay): string
+    {
+        return sprintf('%02d:%02d', intdiv($minuteOfDay, 60), $minuteOfDay % 60);
     }
 
     private function at(\DateTimeImmutable $day, int $minuteOfDay): \DateTimeImmutable

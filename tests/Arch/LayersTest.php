@@ -6,6 +6,9 @@ use Domain\Booking\BookingCancellation;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\CustomerId;
+use Domain\Booking\Specification\BookingRequest;
+use Domain\Booking\Specification\BookingRules;
+use Domain\Booking\Specification\BookingSpecification;
 use Domain\Cancellation\RefundTier;
 use Domain\Cancellation\TieredRefundPolicy;
 use Domain\Pricing\Adjustment;
@@ -61,6 +64,17 @@ arch('pricing and cancellation value objects are immutable')
     ])
     ->toBeReadonly()
     ->toBeFinal();
+
+arch('booking rules are composable specifications')
+    ->expect('Domain\Booking\Specification')
+    ->classes()
+    ->toImplement(BookingSpecification::class)
+    ->ignoring([BookingRequest::class, BookingRules::class]);
+
+arch('specifications are immutable')
+    ->expect('Domain\Booking\Specification')
+    ->classes()
+    ->toBeReadonly();
 
 arch('the domain reads time through the Clock port only')
     ->expect('Domain')

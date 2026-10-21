@@ -5,6 +5,13 @@ declare(strict_types=1);
 namespace Infrastructure\Laravel;
 
 use Domain\Booking\BookingRepository;
+use Domain\Booking\Specification\AlignedToGrid;
+use Domain\Booking\Specification\BelowActiveBookingLimit;
+use Domain\Booking\Specification\BookingRules;
+use Domain\Booking\Specification\DurationBetween;
+use Domain\Booking\Specification\StartsWithMinimumNotice;
+use Domain\Booking\Specification\WithinBookingHorizon;
+use Domain\Booking\Specification\WithinOpeningHours;
 use Domain\Pricing\CouponRepository;
 use Domain\Pricing\PricingPipeline;
 use Domain\Pricing\Rule\CouponDiscount;
@@ -41,6 +48,23 @@ final class InfrastructureServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(PricingPipeline::class, fn (): PricingPipeline => $this->pricingPipeline($this->app->make(Config::class)));
+        $this->app->singleton(BookingRules::class, fn (): BookingRules => $this->bookingRules($this->app->make(Config::class)));
+    }
+
+    private function bookingRules(Config $config): BookingRules
+    {
+        return new BookingRules(
+            (new StartsWithMinimumNotice($config->integer('booking.minimum_notice_minutes')))->and(
+                new WithinBookingHorizon($config->integer('booking.horizon_days')),
+                new DurationBetween(
+                    $config->integer('booking.minimum_duration_minutes'),
+                    $config->integer('booking.maximum_duration_minutes'),
+                ),
+                new AlignedToGrid($config->integer('booking.grid_minutes')),
+                new WithinOpeningHours,
+                new BelowActiveBookingLimit($config->integer('booking.max_upcoming_per_customer')),
+            ),
+        );
     }
 
     private function pricingPipeline(Config $config): PricingPipeline

@@ -12,6 +12,7 @@ use Domain\Space\Space;
 use Domain\Space\SpaceId;
 use Domain\Space\SpaceRepository;
 use Infrastructure\Persistence\Eloquent\Models\SpaceModel;
+use Infrastructure\Persistence\Postgres\OpeningHoursJson;
 
 final class EloquentSpaceRepository implements SpaceRepository
 {
@@ -30,6 +31,7 @@ final class EloquentSpaceRepository implements SpaceRepository
             $model->capacity,
             Money::of($model->hourly_rate_amount, Currency::from($model->currency)),
             CancellationPolicyType::from($model->cancellation_policy),
+            OpeningHoursJson::decode($model->opening_hours),
         );
     }
 
@@ -42,6 +44,7 @@ final class EloquentSpaceRepository implements SpaceRepository
             'hourly_rate_amount' => $space->hourlyRate->amount,
             'currency' => $space->hourlyRate->currency->value,
             'cancellation_policy' => $space->cancellationPolicy->value,
+            'opening_hours' => OpeningHoursJson::encode($space->openingHours),
         ]);
     }
 }

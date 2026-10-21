@@ -59,3 +59,18 @@ it('rejects invalid windows', function (Closure $build): void {
     'no weekdays' => [fn (): WeeklyWindow => new WeeklyWindow([], '18:00', '22:00')],
     'weekday 8' => [fn (): WeeklyWindow => new WeeklyWindow([8], '18:00', '22:00')],
 ])->throws(InvalidWeeklyWindow::class);
+
+it('formats its bounds as HH:MM', function (): void {
+    $window = WeeklyWindow::weekdays('08:05', '24:00');
+
+    expect($window->startTime())->toBe('08:05')
+        ->and($window->endTime())->toBe('24:00');
+});
+
+it('overlaps only when sharing a weekday and some minutes', function (): void {
+    $weekdayMornings = WeeklyWindow::weekdays('08:00', '12:00');
+
+    expect($weekdayMornings->overlaps(new WeeklyWindow([5, 6], '11:00', '13:00')))->toBeTrue()
+        ->and($weekdayMornings->overlaps(WeeklyWindow::weekdays('12:00', '14:00')))->toBeFalse()
+        ->and($weekdayMornings->overlaps(WeeklyWindow::weekends('08:00', '12:00')))->toBeFalse();
+});

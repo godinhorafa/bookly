@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $hourly_rate_amount
  * @property string $currency
  * @property string $cancellation_policy
+ * @property string $opening_hours jsonb, see OpeningHoursJson
  */
 #[Unguarded]
 #[Table(name: 'spaces', keyType: 'string')]

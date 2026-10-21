@@ -7,7 +7,7 @@ declare(strict_types=1);
  * shared start instant so all siblings fire together, then runs the real use case.
  * Prints exactly one word: booked | slot_unavailable | error:<message>
  *
- * Usage: php attempt-booking.php <startAtMicrotime> <spaceId> <customerId>
+ * Usage: php attempt-booking.php <startAtMicrotime> <spaceId> <customerId> <slotStart> <slotEnd>
  */
 
 use Application\Booking\BookSpace;
@@ -17,7 +17,7 @@ use Illuminate\Contracts\Console\Kernel;
 
 require __DIR__ . '/../../vendor/autoload.php';
 
-[, $startAt, $spaceId, $customerId] = $argv;
+[, $startAt, $spaceId, $customerId, $slotStart, $slotEnd] = $argv;
 
 $app = require __DIR__ . '/../../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
@@ -29,7 +29,7 @@ while (microtime(true) < (float) $startAt) {
 }
 
 try {
-    $handler->handle(new BookSpace($spaceId, (int) $customerId, '2026-12-01T14:00:00Z', '2026-12-01T15:00:00Z'));
+    $handler->handle(new BookSpace($spaceId, (int) $customerId, $slotStart, $slotEnd));
     echo 'booked';
 } catch (SlotUnavailable) {
     echo 'slot_unavailable';

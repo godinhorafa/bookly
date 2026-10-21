@@ -79,6 +79,15 @@ final readonly class EloquentBookingRepository implements BookingRepository
         return array_values($models->map($this->toDomain(...))->all());
     }
 
+    public function countUpcomingFor(CustomerId $customerId, \DateTimeImmutable $now): int
+    {
+        return BookingModel::query()
+            ->where('user_id', $customerId->value)
+            ->where('status', '<>', BookingStatus::Cancelled->value)
+            ->whereRaw('upper(period) > ?::timestamptz', [Timestamptz::toDatabase($now)])
+            ->count();
+    }
+
     private function isOverlapViolation(QueryException $e): bool
     {
         return $e->getCode() === self::EXCLUSION_VIOLATION

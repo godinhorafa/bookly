@@ -22,4 +22,9 @@ final class InvalidSpace extends DomainException
     {
         return new self("Unknown time zone \"{$timezone}\".");
     }
+
+    public static function overlappingOpeningHours(): self
+    {
+        return new self('Opening hours windows must not overlap.');
+    }
 }
