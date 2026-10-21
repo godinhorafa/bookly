@@ -8,6 +8,7 @@ use Domain\Booking\Exception\BookingAlreadyStarted;
 use Domain\Booking\Exception\InvalidBookingTransition;
 use Domain\Cancellation\CancellationPolicy;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 /**

@@ -7,10 +7,11 @@ namespace Tests\Support;
 use Domain\Booking\Booking;
 use Domain\Booking\BookingId;
 use Domain\Booking\CustomerId;
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\CancellationPolicyType;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
+use Domain\Space\OpeningHours;
 use Domain\Space\Space;
 use Domain\Space\SpaceId;
 
@@ -25,8 +26,9 @@ final class Builders
         string $name = 'Meeting room',
         string $timezone = 'America/Sao_Paulo',
         CancellationPolicyType $policy = CancellationPolicyType::Moderate,
+        ?OpeningHours $openingHours = null,
     ): Space {
-        return new Space($id ?? SpaceId::generate(), $name, $timezone, 8, Money::of($hourlyRate, Currency::BRL), $policy);
+        return new Space($id ?? SpaceId::generate(), $name, $timezone, 8, Money::of($hourlyRate, Currency::BRL), $policy, $openingHours);
     }
 
     public static function booking(

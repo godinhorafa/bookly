@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Domain\Booking\Exception;
-
-use Domain\Shared\Exception\DomainException;
+namespace Domain\Shared\Exception;
 
 final class InvalidTimeSlot extends DomainException
 {

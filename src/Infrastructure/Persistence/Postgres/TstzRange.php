@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Infrastructure\Persistence\Postgres;
 
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 
 /**
  * Maps the TimeSlot value object to and from PostgreSQL's tstzrange type.

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Domain\Space;
 
-use Domain\Booking\TimeSlot;
 use Domain\Cancellation\CancellationPolicyType;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 use Domain\Space\Exception\InvalidSpace;
 
 /**
@@ -18,6 +18,8 @@ final readonly class Space
 
     public \DateTimeZone $timezone;
 
+    public OpeningHours $openingHours;
+
     public function __construct(
         public SpaceId $id,
         string $name,
@@ -25,6 +27,7 @@ final readonly class Space
         public int $capacity,
         public Money $hourlyRate,
         public CancellationPolicyType $cancellationPolicy = CancellationPolicyType::Moderate,
+        ?OpeningHours $openingHours = null,
     ) {
         $name = trim($name);
         if ($name === '') {
@@ -41,6 +44,12 @@ final readonly class Space
 
         $this->name = $name;
         $this->timezone = new \DateTimeZone($timezone);
+        $this->openingHours = $openingHours ?? OpeningHours::alwaysOpen();
+    }
+
+    public function isOpenDuring(TimeSlot $slot): bool
+    {
+        return $this->openingHours->covers($slot, $this->timezone);
     }
 
     /**

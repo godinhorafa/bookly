@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Domain\Booking\Exception;
 
-use Domain\Booking\TimeSlot;
 use Domain\Shared\Exception\DomainException;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 final class SlotUnavailable extends DomainException

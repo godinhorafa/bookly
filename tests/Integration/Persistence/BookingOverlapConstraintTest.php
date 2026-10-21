@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;

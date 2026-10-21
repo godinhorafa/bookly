@@ -5,15 +5,21 @@ declare(strict_types=1);
 use Application\Booking\BookSpace;
 use Application\Booking\BookSpaceHandler;
 use Domain\Booking\BookingStatus;
-use Domain\Booking\Exception\InvalidTimeSlot;
+use Domain\Booking\CustomerId;
+use Domain\Booking\Exception\BookingRulesViolated;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
+use Domain\Booking\Specification\AlignedToGrid;
+use Domain\Booking\Specification\BelowActiveBookingLimit;
+use Domain\Booking\Specification\BookingRules;
+use Domain\Booking\Specification\StartsWithMinimumNotice;
 use Domain\Pricing\Coupon;
 use Domain\Pricing\Exception\InvalidCoupon;
 use Domain\Pricing\PricingPipeline;
 use Domain\Pricing\Rule\CouponDiscount;
 use Domain\Pricing\Rule\PeakHourSurcharge;
-use Domain\Pricing\Rule\PeakWindow;
+use Domain\Shared\Exception\InvalidTimeSlot;
+use Domain\Shared\TimeSlot;
+use Domain\Shared\WeeklyWindow;
 use Domain\Space\Exception\SpaceNotFound;
 use Domain\Space\SpaceId;
 use Tests\Support\Builders;
@@ -31,7 +37,8 @@ beforeEach(function (): void {
         $this->spaces,
         $this->bookings,
         $this->coupons,
-        new PricingPipeline(new PeakHourSurcharge(25, PeakWindow::weekdays('18:00', '22:00')), new CouponDiscount),
+        new PricingPipeline(new PeakHourSurcharge(25, WeeklyWindow::weekdays('18:00', '22:00')), new CouponDiscount),
+        new BookingRules((new StartsWithMinimumNotice(60))->and(new AlignedToGrid(15), new BelowActiveBookingLimit(2))),
         $this->clock,
     );
 
@@ -92,3 +99,25 @@ it('fails for an unknown space', function (): void {
 it('turns unparseable dates into a domain error', function (): void {
     $this->handler->handle(bookCommand($this->space->id->value, 'tomorrow-ish', '2026-11-02T12:00:00Z'));
 })->throws(InvalidTimeSlot::class);
+
+it('reports every broken rule at once and books nothing', function (): void {
+    // Now is 2026-11-01T12:00Z: this starts in 20 minutes and is off the 15-minute grid.
+    try {
+        $this->handler->handle(bookCommand($this->space->id->value, '2026-11-01T12:20:00Z', '2026-11-01T13:07:00Z'));
+        test()->fail('Expected the booking rules to reject the request.');
+    } catch (BookingRulesViolated $e) {
+        expect($e->violations)->toBe([
+            'Bookings must start at least 60 minutes from now.',
+            'Bookings must start and end on a 15-minute boundary.',
+        ]);
+    }
+
+    expect($this->bookings->countUpcomingFor(new CustomerId(42), $this->clock->now()))->toBe(0);
+});
+
+it('enforces the per-customer limit on upcoming bookings', function (): void {
+    $this->handler->handle(bookCommand($this->space->id->value, '2026-11-03T10:00:00Z', '2026-11-03T11:00:00Z'));
+    $this->handler->handle(bookCommand($this->space->id->value, '2026-11-04T10:00:00Z', '2026-11-04T11:00:00Z'));
+
+    $this->handler->handle(bookCommand($this->space->id->value, '2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z'));
+})->throws(BookingRulesViolated::class, 'A customer can hold at most 2 upcoming bookings.');

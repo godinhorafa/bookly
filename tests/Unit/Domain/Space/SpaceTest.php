@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Domain\Booking\TimeSlot;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 use Domain\Space\Exception\InvalidSpace;
 use Domain\Space\Space;
 use Domain\Space\SpaceId;

@@ -10,6 +10,7 @@ use Domain\Pricing\Exception\InvalidPricingRule;
 use Domain\Pricing\PricingContext;
 use Domain\Pricing\PricingRule;
 use Domain\Pricing\Quote;
+use Domain\Shared\WeeklyWindow;
 
 /**
  * Adds a percentage of the hourly rate, but only for the minutes that fall in peak windows.
@@ -17,13 +18,13 @@ use Domain\Pricing\Quote;
  */
 final readonly class PeakHourSurcharge implements PricingRule
 {
-    /** @var list<PeakWindow> */
+    /** @var list<WeeklyWindow> */
     private array $windows;
 
     /**
      * Windows must not overlap each other, or shared minutes would be charged twice.
      */
-    public function __construct(private int $percent, PeakWindow ...$windows)
+    public function __construct(private int $percent, WeeklyWindow ...$windows)
     {
         if ($percent < 1 || $percent > 100) {
             throw InvalidPricingRule::percentOutOfRange($percent);

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Domain\Booking\TimeSlot;
 use Domain\Pricing\Adjustment;
 use Domain\Pricing\AdjustmentKind;
 use Domain\Pricing\Coupon;
@@ -12,9 +11,10 @@ use Domain\Pricing\Quote;
 use Domain\Pricing\Rule\CouponDiscount;
 use Domain\Pricing\Rule\LongBookingDiscount;
 use Domain\Pricing\Rule\PeakHourSurcharge;
-use Domain\Pricing\Rule\PeakWindow;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
+use Domain\Shared\WeeklyWindow;
 use Tests\Support\Builders;
 
 beforeEach(function (): void {
@@ -24,7 +24,7 @@ beforeEach(function (): void {
         TimeSlot::fromStrings('2026-11-02T18:00:00-03:00', '2026-11-02T22:00:00-03:00'),
         Coupon::fixed('MINUS50', Money::of(5_000, Currency::BRL)),
     );
-    $this->peak = new PeakHourSurcharge(25, PeakWindow::weekdays('18:00', '22:00'));
+    $this->peak = new PeakHourSurcharge(25, WeeklyWindow::weekdays('18:00', '22:00'));
     $this->long = new LongBookingDiscount(240, 10);
     $this->coupon = new CouponDiscount;
 });

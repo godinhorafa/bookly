@@ -24,6 +24,9 @@ it('lets exactly one of many simultaneous requests book the same slot', function
     $customerId = User::factory()->create()->id;
 
     $startAt = microtime(true) + 2.0;
+    // Relative to today so the booking rules (notice, horizon) keep accepting it.
+    $slotStart = (new DateTimeImmutable('+30 days', new DateTimeZone('UTC')))->setTime(14, 0);
+    $slot = [$slotStart->format(DATE_ATOM), $slotStart->modify('+1 hour')->format(DATE_ATOM)];
     $env = array_merge(getenv(), [
         'APP_ENV' => 'testing',
         'DB_CONNECTION' => 'pgsql',
@@ -36,7 +39,7 @@ it('lets exactly one of many simultaneous requests book the same slot', function
 
     $processes = [];
     for ($i = 0; $i < CONTENDERS; $i++) {
-        $command = [PHP_BINARY, __DIR__ . '/attempt-booking.php', (string) $startAt, $space->id->value, (string) $customerId];
+        $command = [PHP_BINARY, __DIR__ . '/attempt-booking.php', (string) $startAt, $space->id->value, (string) $customerId, ...$slot];
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path(), $env);
         expect($process)->toBeResource();
         $processes[] = [$process, $pipes];

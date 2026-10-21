@@ -7,9 +7,10 @@ namespace Tests\Support\InMemory;
 use Domain\Booking\Booking;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
+use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 /**
@@ -51,5 +52,13 @@ final class InMemoryBookingRepository implements BookingRepository
         usort($matches, static fn (Booking $a, Booking $b): int => $a->slot->start <=> $b->slot->start);
 
         return array_map(static fn (Booking $b): Booking => clone $b, $matches);
+    }
+
+    public function countUpcomingFor(CustomerId $customerId, \DateTimeImmutable $now): int
+    {
+        return count(array_filter(
+            $this->bookings,
+            static fn (Booking $b): bool => $b->customerId->equals($customerId) && $b->holdsSlot() && $b->slot->end > $now,
+        ));
     }
 }

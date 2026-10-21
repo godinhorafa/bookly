@@ -7,7 +7,7 @@ use Domain\Booking\BookingId;
 use Domain\Booking\BookingStatus;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
+use Domain\Shared\TimeSlot;
 use Tests\Contracts\BookingRepositoryFixture;
 use Tests\Support\Builders;
 
@@ -143,5 +143,19 @@ function bookingRepositoryContract(Closure $setUp): void
         $fx->repository->save($booking);
 
         expect($fx->repository->get($booking->id)->cancellation())->toBeNull();
+    });
+
+    it('counts only the upcoming, slot-holding bookings of a customer', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $now = new DateTimeImmutable('2026-11-02T10:30:00Z');
+
+        $fx->repository->save(Builders::booking($fx->space, $fx->customer, '2026-11-01T10:00:00Z', '2026-11-01T11:00:00Z')); // over
+        $fx->repository->save(Builders::booking($fx->space, $fx->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z')); // in progress
+        $fx->repository->save(Builders::booking($fx->space, $fx->customer, '2026-11-03T10:00:00Z', '2026-11-03T11:00:00Z')); // upcoming
+        $fx->repository->save(Builders::cancel(Builders::booking($fx->space, $fx->customer, '2026-11-04T10:00:00Z', '2026-11-04T11:00:00Z')));
+        $fx->repository->save(Builders::booking($fx->otherSpace, $fx->customer, '2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z')); // other space, still counts
+
+        expect($fx->repository->countUpcomingFor($fx->customer, $now))->toBe(3);
     });
 }

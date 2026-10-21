@@ -6,6 +6,7 @@ namespace Domain\Booking;
 
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 interface BookingRepository
@@ -31,4 +32,9 @@ interface BookingRepository
      * @return list<Booking>
      */
     public function findOverlapping(SpaceId $spaceId, TimeSlot $slot): array;
+
+    /**
+     * How many bookings of the customer still hold a slot that has not ended yet.
+     */
+    public function countUpcomingFor(CustomerId $customerId, \DateTimeImmutable $now): int;
 }

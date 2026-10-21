@@ -12,9 +12,9 @@ use Domain\Booking\BookingStatus;
 use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
-use Domain\Booking\TimeSlot;
 use Domain\Shared\Currency;
 use Domain\Shared\Money;
+use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
@@ -77,6 +77,15 @@ final readonly class EloquentBookingRepository implements BookingRepository
             ->get();
 
         return array_values($models->map($this->toDomain(...))->all());
+    }
+
+    public function countUpcomingFor(CustomerId $customerId, \DateTimeImmutable $now): int
+    {
+        return BookingModel::query()
+            ->where('user_id', $customerId->value)
+            ->where('status', '<>', BookingStatus::Cancelled->value)
+            ->whereRaw('upper(period) > ?::timestamptz', [Timestamptz::toDatabase($now)])
+            ->count();
     }
 
     private function isOverlapViolation(QueryException $e): bool
