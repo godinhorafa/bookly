@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Application\Transaction;
 use Domain\Booking\BookingCancellation;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
@@ -11,6 +12,8 @@ use Domain\Booking\Specification\BookingRules;
 use Domain\Booking\Specification\BookingSpecification;
 use Domain\Cancellation\RefundTier;
 use Domain\Cancellation\TieredRefundPolicy;
+use Domain\Payment\PaymentGateway;
+use Domain\Payment\PaymentRepository;
 use Domain\Pricing\Adjustment;
 use Domain\Pricing\Coupon;
 use Domain\Pricing\CouponRepository;
@@ -76,12 +79,21 @@ arch('specifications are immutable')
     ->classes()
     ->toBeReadonly();
 
+arch('payment providers are adapters behind the PaymentGateway port')
+    ->expect('Infrastructure\Payment')
+    ->classes()
+    ->toImplement(PaymentGateway::class);
+
+arch('HTTP clients stay in infrastructure')
+    ->expect('Illuminate\Http')
+    ->toOnlyBeUsedIn(['Infrastructure', 'App', 'Tests']);
+
 arch('the domain reads time through the Clock port only')
     ->expect('Domain')
     ->not->toUse(['time', 'microtime', 'date', 'now']);
 
 arch('repositories are ports owned by the domain')
-    ->expect([BookingRepository::class, SpaceRepository::class, CouponRepository::class, Clock::class])
+    ->expect([BookingRepository::class, SpaceRepository::class, CouponRepository::class, Clock::class, PaymentRepository::class, PaymentGateway::class, Transaction::class])
     ->toBeInterfaces();
 
 arch('eloquent stays inside infrastructure')
@@ -95,6 +107,7 @@ arch('domain exceptions share a common base')
         'Domain\Space\Exception',
         'Domain\Pricing\Exception',
         'Domain\Cancellation\Exception',
+        'Domain\Payment\Exception',
     ])
     ->classes()
     ->toExtend(DomainException::class)
