@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Application\Booking;
 
+use Application\Event\Outbox;
 use Application\Transaction;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
@@ -23,6 +24,7 @@ final readonly class CancelBookingHandler
         private SpaceRepository $spaces,
         private PaymentRepository $payments,
         private PaymentGateways $gateways,
+        private Outbox $outbox,
         private Transaction $transaction,
         private Clock $clock,
     ) {}
@@ -41,12 +43,14 @@ final readonly class CancelBookingHandler
         }
 
         $space = $this->spaces->get($booking->spaceId);
-        $refund = $booking->cancel($this->clock->now(), $space->cancellationPolicy->policy());
+        $now = $this->clock->now();
+        $refund = $booking->cancel($now, $space->cancellationPolicy->policy());
         $payment = $refund->isZero() ? null : $this->refund($id, $refund);
 
         // The refund call happens first: if the gateway fails, nothing is saved and the booking stays active.
-        $this->transaction->run(function () use ($booking, $payment): void {
+        $this->transaction->run(function () use ($booking, $payment, $now): void {
             $this->bookings->save($booking);
+            $this->outbox->append($now, ...$booking->releaseEvents());
 
             if ($payment instanceof Payment) {
                 $this->payments->save($payment);

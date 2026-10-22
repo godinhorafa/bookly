@@ -23,6 +23,7 @@ use Tests\Support\Builders;
 use Tests\Support\FrozenClock;
 use Tests\Support\InlineTransaction;
 use Tests\Support\InMemory\InMemoryBookingRepository;
+use Tests\Support\InMemory\InMemoryOutbox;
 use Tests\Support\InMemory\InMemoryPaymentRepository;
 use Tests\Support\InMemory\InMemorySpaceRepository;
 
@@ -37,6 +38,7 @@ beforeEach(function (): void {
         $this->spaces,
         $this->payments,
         new PaymentGateways($this->gateway),
+        $this->outbox = new InMemoryOutbox,
         new InlineTransaction,
         $this->clock,
     );
@@ -55,7 +57,7 @@ function paidBookingIn(CancellationPolicyType $policy): BookingId
     $booking = Builders::booking($space->id, test()->owner);
     test()->bookings->save($booking);
 
-    (new PayForBookingHandler(test()->bookings, test()->payments, new PaymentGateways(test()->gateway), new InlineTransaction))
+    (new PayForBookingHandler(test()->bookings, test()->payments, new PaymentGateways(test()->gateway), new InMemoryOutbox, new InlineTransaction, test()->clock))
         ->handle(new PayForBooking($booking->id->value, 42, 'pm_card_visa'));
 
     return $booking->id;
@@ -117,12 +119,13 @@ it('leaves the booking active when the refund cannot be sent', function (): void
             throw PaymentGatewayUnavailable::because('fake', 'down');
         }
     };
-    $handler = new CancelBookingHandler($this->bookings, $this->spaces, $this->payments, new PaymentGateways($down), new InlineTransaction, $this->clock);
+    $handler = new CancelBookingHandler($this->bookings, $this->spaces, $this->payments, new PaymentGateways($down), $this->outbox, new InlineTransaction, $this->clock);
 
     expect(fn (): Money => $handler->handle(new CancelBooking($id->value, 42)))->toThrow(PaymentGatewayUnavailable::class);
 
     expect($this->bookings->get($id)->status())->toBe(BookingStatus::Confirmed)
-        ->and($this->payments->forBooking($id)[0]->refunded()->isZero())->toBeTrue();
+        ->and($this->payments->forBooking($id)[0]->refunded()->isZero())->toBeTrue()
+        ->and($this->outbox->names())->toBe([]);
 });
 
 it('hides bookings that belong to someone else', function (): void {
@@ -137,3 +140,14 @@ it('refuses to cancel after the start', function (): void {
 
     $this->handler->handle(new CancelBooking($id->value, 42));
 })->throws(BookingAlreadyStarted::class);
+
+it('records booking.cancelled with the refund', function (): void {
+    $id = paidBookingIn(CancellationPolicyType::Moderate);
+    $this->clock->travelTo('2026-11-01T04:00:00Z');
+
+    $this->handler->handle(new CancelBooking($id->value, 42));
+
+    $event = $this->outbox->claimDue($this->clock->now(), 10, 60)[0];
+    expect($event->name)->toBe('booking.cancelled')
+        ->and($event->payload['refund_amount'])->toBe(2_500);
+});

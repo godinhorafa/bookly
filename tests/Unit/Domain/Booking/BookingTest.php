@@ -8,6 +8,7 @@ use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\BookingAlreadyStarted;
 use Domain\Booking\Exception\InvalidBookingTransition;
 use Domain\Cancellation\CancellationPolicyType;
+use Domain\Shared\Event\DomainEvent;
 use Domain\Space\SpaceId;
 use Tests\Support\Builders;
 
@@ -107,4 +108,23 @@ it('conflicts only with active, overlapping bookings of the same space', functio
 it('keeps the slot-holding rule in sync with the database constraint', function (): void {
     expect(array_map(static fn (BookingStatus $s): bool => $s->holdsSlot(), BookingStatus::cases()))
         ->toBe([true, true, false]);
+});
+
+it('records what happened to it as domain events', function (): void {
+    $booking = Builders::booking($this->space, $this->customer);
+    $booking->confirm();
+    Builders::cancel($booking);
+
+    $events = $booking->releaseEvents();
+
+    expect(array_map(static fn (DomainEvent $e): string => $e::name(), $events))->toBe(['booking.requested', 'booking.confirmed', 'booking.cancelled'])
+        ->and($events[2]->payload())->toMatchArray(['booking_id' => $booking->id->value, 'refund_amount' => 5_000])
+        ->and($booking->releaseEvents())->toBe([]);
+});
+
+it('records nothing when rebuilt from storage', function (): void {
+    $booking = Builders::booking($this->space, $this->customer);
+    $copy = Booking::reconstitute($booking->id, $booking->spaceId, $booking->customerId, $booking->slot, $booking->price, BookingStatus::Pending);
+
+    expect($copy->releaseEvents())->toBe([]);
 });
