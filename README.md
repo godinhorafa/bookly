@@ -56,7 +56,7 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 | `Arch` | Layer dependency rules, immutability, strict types | No | None |
 | `Integration` | Repositories and DB constraints | Yes | **Real PostgreSQL** (not SQLite) |
 | `Concurrency` | 8 parallel processes racing for one slot: exactly one wins | Yes | Real PostgreSQL |
-| `Feature` | HTTP endpoints end to end | Yes | Real PostgreSQL |
+| `Feature` | HTTP contract of every endpoint, including problem responses and idempotency | Yes | Real PostgreSQL |
 
 The same **contract suite** (`tests/Contracts`) runs against the in-memory and
 the PostgreSQL repositories, so the fakes used in unit tests can't drift from
@@ -78,6 +78,37 @@ docker compose exec app composer test
 ```
 
 Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `btree_gist` extension available.
+
+## HTTP API
+
+Bearer-token API (Laravel Sanctum). The OpenAPI document is generated from the
+code by [Scramble](https://scramble.dedoc.co) and committed as
+[`docs/api/openapi.json`](docs/api/openapi.json) (CI fails if it is stale).
+With the app running locally it is browsable at `/docs/api`.
+
+| Method | Path | |
+|---|---|---|
+| `POST` | `/api/tokens` | Exchange credentials for a token |
+| `GET` | `/api/spaces` | Spaces with rate, cancellation policy and opening hours |
+| `GET` | `/api/spaces/{id}/availability?from=&to=` | Busy slots (no customer data) |
+| `GET` | `/api/bookings` | My bookings |
+| `POST` | `/api/bookings` | Book a space: itemised quote in the response |
+| `GET` | `/api/bookings/{id}` | One of my bookings |
+| `POST` | `/api/bookings/{id}/payment` | Pay and confirm (`402` with the reason if declined) |
+| `POST` | `/api/bookings/{id}/cancellation` | Cancel; the refund follows the space's policy |
+
+- **Errors** are RFC 9457 `application/problem+json`, mapped from domain
+  exceptions in one place ([problem types](docs/api/problems.md)). Rule
+  violations list *every* broken rule.
+- **`Idempotency-Key`** on every `POST`: a retry returns the original response
+  instead of booking or charging twice (`Idempotent-Replayed: true`).
+
+```bash
+curl -X POST localhost:8000/api/bookings \
+  -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{"space_id":"…","start":"2026-11-03T18:00:00-03:00","end":"2026-11-03T20:00:00-03:00","coupon":"WELCOME10"}'
+```
 
 ## Anti-patterns: a fat controller, refactored
 
@@ -111,7 +142,8 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [x] Payment gateway port with Fake and Stripe adapters, plus contract tests
 - [ ] Expire unpaid bookings after a few minutes
 - [x] Domain events → e-mail, webhooks, audit (transactional outbox)
-- [ ] REST API with OpenAPI docs and feature tests
+- [x] REST API with OpenAPI docs, idempotency keys and feature tests
+- [x] A fat controller refactored into a thin adapter, with the same tests
 - [ ] React + TypeScript dashboard, Playwright E2E
 - [ ] NestJS real-time notification service (WebSocket)
 - [ ] Mutation testing with Infection

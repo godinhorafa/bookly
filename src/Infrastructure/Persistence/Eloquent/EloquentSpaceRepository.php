@@ -24,15 +24,7 @@ final class EloquentSpaceRepository implements SpaceRepository
             throw SpaceNotFound::withId($id);
         }
 
-        return new Space(
-            SpaceId::fromString($model->id),
-            $model->name,
-            $model->timezone,
-            $model->capacity,
-            Money::of($model->hourly_rate_amount, Currency::from($model->currency)),
-            CancellationPolicyType::from($model->cancellation_policy),
-            OpeningHoursJson::decode($model->opening_hours),
-        );
+        return $this->toDomain($model);
     }
 
     public function save(Space $space): void
@@ -46,5 +38,23 @@ final class EloquentSpaceRepository implements SpaceRepository
             'cancellation_policy' => $space->cancellationPolicy->value,
             'opening_hours' => OpeningHoursJson::encode($space->openingHours),
         ]);
+    }
+
+    public function all(): array
+    {
+        return array_values(SpaceModel::query()->orderBy('name')->get()->map($this->toDomain(...))->all());
+    }
+
+    private function toDomain(SpaceModel $model): Space
+    {
+        return new Space(
+            SpaceId::fromString($model->id),
+            $model->name,
+            $model->timezone,
+            $model->capacity,
+            Money::of($model->hourly_rate_amount, Currency::from($model->currency)),
+            CancellationPolicyType::from($model->cancellation_policy),
+            OpeningHoursJson::decode($model->opening_hours),
+        );
     }
 }

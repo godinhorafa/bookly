@@ -64,4 +64,12 @@ final class InMemoryBookingRepository implements BookingRepository
             static fn (Booking $b): bool => $b->customerId->equals($customerId) && $b->holdsSlot() && $b->slot->end > $now,
         ));
     }
+
+    public function forCustomer(CustomerId $customerId): array
+    {
+        $mine = array_values(array_filter($this->bookings, static fn (Booking $b): bool => $b->customerId->equals($customerId)));
+        usort($mine, static fn (Booking $a, Booking $b): int => $b->slot->start <=> $a->slot->start);
+
+        return array_map(static fn (Booking $b): Booking => clone $b, $mine);
+    }
 }

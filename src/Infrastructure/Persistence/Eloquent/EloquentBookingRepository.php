@@ -88,6 +88,16 @@ final readonly class EloquentBookingRepository implements BookingRepository
             ->count();
     }
 
+    public function forCustomer(CustomerId $customerId): array
+    {
+        $models = BookingModel::query()
+            ->where('user_id', $customerId->value)
+            ->orderByRaw('lower(period) DESC')
+            ->get();
+
+        return array_values($models->map($this->toDomain(...))->all());
+    }
+
     private function isOverlapViolation(QueryException $e): bool
     {
         return $e->getCode() === self::EXCLUSION_VIOLATION

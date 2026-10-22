@@ -37,4 +37,11 @@ interface BookingRepository
      * How many bookings of the customer still hold a slot that has not ended yet.
      */
     public function countUpcomingFor(CustomerId $customerId, \DateTimeImmutable $now): int;
+
+    /**
+     * The customer's bookings, latest slot first.
+     *
+     * @return list<Booking>
+     */
+    public function forCustomer(CustomerId $customerId): array;
 }

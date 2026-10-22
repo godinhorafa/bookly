@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Domain\Booking\Booking;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingStatus;
+use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
 use Domain\Shared\TimeSlot;
@@ -157,5 +158,18 @@ function bookingRepositoryContract(Closure $setUp): void
         $fx->repository->save(Builders::booking($fx->otherSpace, $fx->customer, '2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z')); // other space, still counts
 
         expect($fx->repository->countUpcomingFor($fx->customer, $now))->toBe(3);
+    });
+
+    it('lists a customer\'s bookings, latest first', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $early = Builders::booking($fx->space, $fx->customer, '2026-11-03T10:00:00Z', '2026-11-03T11:00:00Z');
+        $late = Builders::booking($fx->otherSpace, $fx->customer, '2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z');
+        $fx->repository->save($early);
+        $fx->repository->save($late);
+
+        expect(array_map(static fn (Booking $b): string => $b->id->value, $fx->repository->forCustomer($fx->customer)))
+            ->toBe([$late->id->value, $early->id->value])
+            ->and($fx->repository->forCustomer(new CustomerId(999_999)))->toBe([]);
     });
 }

@@ -61,3 +61,11 @@ it('defaults existing spaces to always open', function (): void {
 
     expect($repository->get($space->id)->openingHours->windows[0]->weekdays)->toBe([1, 2, 3, 4, 5, 6, 7]);
 });
+
+it('lists every space by name', function (): void {
+    $repository = app(SpaceRepository::class);
+    $repository->save(new Space(SpaceId::generate(), 'Zen room', 'America/Sao_Paulo', 4, Money::of(9_000, Currency::BRL)));
+    $repository->save(new Space(SpaceId::generate(), 'Atrium', 'America/Sao_Paulo', 20, Money::of(20_000, Currency::BRL)));
+
+    expect(array_map(fn (Space $s): string => $s->name, $repository->all()))->toBe(['Atrium', 'Zen room']);
+});
