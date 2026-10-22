@@ -75,7 +75,7 @@ final readonly class BookSpaceHandler
             $this->outbox->append($now, ...$booking->releaseEvents());
         });
 
-        return new BookSpaceResult($booking->id, $quote);
+        return new BookSpaceResult($booking, $quote);
     }
 
     private function resolveCoupon(?string $code, \DateTimeImmutable $now): ?Coupon

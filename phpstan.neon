@@ -8,7 +8,3 @@ parameters:
         - src
         - database
     tmpDir: storage/framework/cache/phpstan
-    # The deliberate fat controller (docs/refactoring/fat-controller.md) fails level max
-    # with 13 errors; the refactoring commit removes both the controller and this line.
-    excludePaths:
-        - app/Http/Controllers/Api/BookingController.php

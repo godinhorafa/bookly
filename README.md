@@ -79,6 +79,14 @@ docker compose exec app composer test
 
 Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `btree_gist` extension available.
 
+## Anti-patterns: a fat controller, refactored
+
+The booking endpoint was first committed as a deliberate **fat controller**
+(validation, rules, pricing and SQL in one 89-line method, with real bugs:
+peak hours in UTC, no opening hours, an unhandled race). The next commit turns it into a 6-line
+HTTP adapter over the use case, with the **same feature tests passing
+unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-controller.md).
+
 ## Architecture Decision Records
 
 - [0001: Layered architecture with a framework-free domain](docs/adr/0001-layered-architecture-with-framework-free-domain.md)
