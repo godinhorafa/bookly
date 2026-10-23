@@ -25,7 +25,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "Array of `BookingResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -33,7 +33,9 @@
                                     "properties": {
                                         "data": {
                                             "type": "array",
-                                            "items": {}
+                                            "items": {
+                                                "$ref": "#/components/schemas/BookingResource"
+                                            }
                                         }
                                     },
                                     "required": [
@@ -67,15 +69,14 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "",
+                        "description": "`BookingResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {}
+                                            "$ref": "#/components/schemas/BookingResource"
                                         }
                                     },
                                     "required": [
@@ -113,15 +114,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "`BookingResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {}
+                                            "$ref": "#/components/schemas/BookingResource"
                                         }
                                     },
                                     "required": [
@@ -167,15 +167,14 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "`BookingResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {}
+                                            "$ref": "#/components/schemas/BookingResource"
                                         }
                                     },
                                     "required": [
@@ -254,15 +253,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "`BookingResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {}
+                                            "$ref": "#/components/schemas/BookingResource"
                                         }
                                     },
                                     "required": [
@@ -287,7 +285,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "Array of `SpaceResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -295,7 +293,9 @@
                                     "properties": {
                                         "data": {
                                             "type": "array",
-                                            "items": {}
+                                            "items": {
+                                                "$ref": "#/components/schemas/SpaceResource"
+                                            }
                                         }
                                     },
                                     "required": [
@@ -348,35 +348,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "`AvailabilityResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "space_id": {
-                                                    "type": "string"
-                                                },
-                                                "from": {
-                                                    "type": "string"
-                                                },
-                                                "to": {
-                                                    "type": "string"
-                                                },
-                                                "busy": {
-                                                    "type": "array",
-                                                    "items": {}
-                                                }
-                                            },
-                                            "required": [
-                                                "space_id",
-                                                "from",
-                                                "to",
-                                                "busy"
-                                            ]
+                                            "$ref": "#/components/schemas/AvailabilityResource"
                                         }
                                     },
                                     "required": [
@@ -548,6 +527,159 @@
             }
         },
         "schemas": {
+            "AdjustmentKind": {
+                "type": "string",
+                "enum": [
+                    "surcharge",
+                    "discount"
+                ],
+                "title": "AdjustmentKind"
+            },
+            "AdjustmentResource": {
+                "type": "object",
+                "properties": {
+                    "rule": {
+                        "type": "string",
+                        "description": "Machine-readable rule id, e.g. `peak_hours`, `long_booking`, `coupon`."
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/AdjustmentKind"
+                    },
+                    "amount": {
+                        "$ref": "#/components/schemas/MoneyResource"
+                    }
+                },
+                "required": [
+                    "rule",
+                    "description",
+                    "kind",
+                    "amount"
+                ],
+                "title": "AdjustmentResource"
+            },
+            "AvailabilityResource": {
+                "type": "object",
+                "properties": {
+                    "space_id": {
+                        "type": "string"
+                    },
+                    "from": {
+                        "type": "string"
+                    },
+                    "to": {
+                        "type": "string"
+                    },
+                    "busy": {
+                        "type": "array",
+                        "description": "Slots held by active bookings, in order. Who booked them is not disclosed.",
+                        "items": {
+                            "$ref": "#/components/schemas/SlotResource"
+                        }
+                    }
+                },
+                "required": [
+                    "space_id",
+                    "from",
+                    "to",
+                    "busy"
+                ],
+                "title": "AvailabilityResource"
+            },
+            "BookingResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/BookingStatus"
+                    },
+                    "space_id": {
+                        "type": "string"
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": "ISO 8601, UTC."
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "ISO 8601, UTC; the slot is half-open: [start, end)."
+                    },
+                    "price": {
+                        "$ref": "#/components/schemas/MoneyResource"
+                    },
+                    "quote": {
+                        "anyOf": [
+                            {
+                                "description": "Only in the response that created the booking.",
+                                "$ref": "#/components/schemas/QuoteResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "cancellation": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/CancellationResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "status",
+                    "space_id",
+                    "start",
+                    "end",
+                    "price"
+                ],
+                "title": "BookingResource"
+            },
+            "BookingStatus": {
+                "type": "string",
+                "description": "Lifecycle: Pending -> Confirmed (after payment) -> Cancelled. A pending booking can also be cancelled, e.g. when payment fails.\n",
+                "enum": [
+                    "pending",
+                    "confirmed",
+                    "cancelled"
+                ],
+                "title": "BookingStatus"
+            },
+            "CancellationPolicyType": {
+                "type": "string",
+                "description": "The policies a space owner can choose from. Each one maps to a concrete strategy.\n| |\n|---|\n| `flexible` <br/> 100% up to 24h before, 50% after that. |\n| `moderate` <br/> 100% up to 48h before, 50% up to 24h before, nothing after. |\n| `strict` <br/> 50% up to 7 days before, nothing after. |\n| `non_refundable` <br/>  |",
+                "enum": [
+                    "flexible",
+                    "moderate",
+                    "strict",
+                    "non_refundable"
+                ],
+                "title": "CancellationPolicyType"
+            },
+            "CancellationResource": {
+                "type": "object",
+                "properties": {
+                    "cancelled_at": {
+                        "type": "string"
+                    },
+                    "refund": {
+                        "$ref": "#/components/schemas/MoneyResource"
+                    }
+                },
+                "required": [
+                    "cancelled_at",
+                    "refund"
+                ],
+                "title": "CancellationResource"
+            },
             "CreateBookingRequest": {
                 "type": "object",
                 "description": "Checks the *shape* of the request only. Business rules (notice, duration,\nopening hours...) belong to the domain and come back as 422 problems.",
@@ -601,6 +733,23 @@
                 ],
                 "title": "IssueTokenRequest"
             },
+            "MoneyResource": {
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "type": "integer",
+                        "description": "In minor units, e.g. 12050 for BRL 120.50."
+                    },
+                    "currency": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "currency"
+                ],
+                "title": "MoneyResource"
+            },
             "PayBookingRequest": {
                 "type": "object",
                 "properties": {
@@ -614,6 +763,111 @@
                     "payment_method"
                 ],
                 "title": "PayBookingRequest"
+            },
+            "QuoteResource": {
+                "type": "object",
+                "properties": {
+                    "base": {
+                        "$ref": "#/components/schemas/MoneyResource"
+                    },
+                    "adjustments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AdjustmentResource"
+                        }
+                    },
+                    "total": {
+                        "$ref": "#/components/schemas/MoneyResource"
+                    }
+                },
+                "required": [
+                    "base",
+                    "adjustments",
+                    "total"
+                ],
+                "title": "QuoteResource"
+            },
+            "SlotResource": {
+                "type": "object",
+                "properties": {
+                    "start": {
+                        "type": "string"
+                    },
+                    "end": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "start",
+                    "end"
+                ],
+                "title": "SlotResource"
+            },
+            "SpaceResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "description": "IANA time zone; opening and peak hours are in this zone."
+                    },
+                    "capacity": {
+                        "type": "integer"
+                    },
+                    "hourly_rate": {
+                        "$ref": "#/components/schemas/MoneyResource"
+                    },
+                    "cancellation_policy": {
+                        "$ref": "#/components/schemas/CancellationPolicyType"
+                    },
+                    "opening_hours": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WeeklyWindowResource"
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "timezone",
+                    "capacity",
+                    "hourly_rate",
+                    "cancellation_policy",
+                    "opening_hours"
+                ],
+                "title": "SpaceResource"
+            },
+            "WeeklyWindowResource": {
+                "type": "object",
+                "properties": {
+                    "weekdays": {
+                        "type": "array",
+                        "description": "ISO weekdays, 1 = Monday ... 7 = Sunday.",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": "Local time, HH:MM."
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "Local time, HH:MM; may be 24:00."
+                    }
+                },
+                "required": [
+                    "weekdays",
+                    "start",
+                    "end"
+                ],
+                "title": "WeeklyWindowResource"
             }
         },
         "responses": {

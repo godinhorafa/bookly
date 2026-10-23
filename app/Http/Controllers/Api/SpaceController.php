@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Presenters\SpacePresenter;
 use App\Http\Requests\AvailabilityRequest;
+use App\Http\Resources\AvailabilityResource;
+use App\Http\Resources\SpaceResource;
 use Application\Space\SpaceQueries;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 final readonly class SpaceController
 {
@@ -16,15 +17,15 @@ final readonly class SpaceController
     /**
      * List bookable spaces.
      */
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        return new JsonResponse(['data' => array_map(SpacePresenter::space(...), $this->spaces->all())]);
+        return SpaceResource::collection($this->spaces->all());
     }
 
     /**
      * Busy slots of a space between two instants (at most 62 days apart).
      */
-    public function availability(AvailabilityRequest $request, string $space): JsonResponse
+    public function availability(AvailabilityRequest $request, string $space): AvailabilityResource
     {
         $availability = $this->spaces->availability(
             $space,
@@ -32,6 +33,6 @@ final readonly class SpaceController
             $request->string('to')->value(),
         );
 
-        return new JsonResponse(['data' => SpacePresenter::availability($availability)]);
+        return new AvailabilityResource($availability);
     }
 }

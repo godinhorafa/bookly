@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Presenters\BookingPresenter;
 use App\Http\Problem\Problem;
 use App\Http\Requests\CreateBookingRequest;
 use App\Http\Requests\PayBookingRequest;
+use App\Http\Resources\BookingResource;
 use App\Models\User;
 use Application\Booking\BookingQueries;
 use Application\Booking\BookSpaceHandler;
@@ -17,6 +17,7 @@ use Application\Payment\PayForBooking;
 use Application\Payment\PayForBookingHandler;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
  * HTTP adapter for booking use cases: translate the request into a command,
@@ -35,12 +36,9 @@ final readonly class BookingController
     /**
      * List my bookings, latest first.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return new JsonResponse(['data' => array_map(
-            BookingPresenter::booking(...),
-            $this->bookings->ofCustomer($this->customerId($request)),
-        )]);
+        return BookingResource::collection($this->bookings->ofCustomer($this->customerId($request)));
     }
 
     /**
@@ -53,15 +51,15 @@ final readonly class BookingController
     {
         $result = $this->bookSpace->handle($request->toCommand());
 
-        return new JsonResponse(['data' => BookingPresenter::booking($result->booking, $result->quote)], 201);
+        return (new BookingResource($result->booking))->withQuote($result->quote)->response()->setStatusCode(201);
     }
 
     /**
      * Show one of my bookings.
      */
-    public function show(Request $request, string $booking): JsonResponse
+    public function show(Request $request, string $booking): BookingResource
     {
-        return new JsonResponse(['data' => BookingPresenter::booking($this->bookings->get($booking, $this->customerId($request)))]);
+        return new BookingResource($this->bookings->get($booking, $this->customerId($request)));
     }
 
     /**
@@ -70,7 +68,7 @@ final readonly class BookingController
      * A declined card is answered with `402` and the provider's reason; the
      * booking stays pending so the customer can try another card.
      */
-    public function pay(PayBookingRequest $request, string $booking): JsonResponse
+    public function pay(PayBookingRequest $request, string $booking): BookingResource|JsonResponse
     {
         $customerId = $this->customerId($request);
         $outcome = $this->pay->handle(new PayForBooking($booking, $customerId, $request->string('payment_method')->value()));
@@ -81,18 +79,18 @@ final readonly class BookingController
             ]))->toResponse();
         }
 
-        return new JsonResponse(['data' => BookingPresenter::booking($this->bookings->get($booking, $customerId))]);
+        return new BookingResource($this->bookings->get($booking, $customerId));
     }
 
     /**
      * Cancel one of my bookings. The refund follows the space's cancellation policy.
      */
-    public function cancel(Request $request, string $booking): JsonResponse
+    public function cancel(Request $request, string $booking): BookingResource
     {
         $customerId = $this->customerId($request);
         $this->cancel->handle(new CancelBooking($booking, $customerId));
 
-        return new JsonResponse(['data' => BookingPresenter::booking($this->bookings->get($booking, $customerId))]);
+        return new BookingResource($this->bookings->get($booking, $customerId));
     }
 
     private function customerId(Request $request): int
