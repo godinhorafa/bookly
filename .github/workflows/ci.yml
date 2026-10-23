@@ -67,7 +67,11 @@ jobs:
           php artisan key:generate
 
       - name: OpenAPI spec is up to date
+        # Scramble reads the database schema to describe models, so migrate first.
+        env:
+          DB_DATABASE: bookly_test
         run: |
+          php artisan migrate --force
           php artisan scramble:export --path=docs/api/openapi.json
           git diff --exit-code docs/api/openapi.json || (echo "Run: php artisan scramble:export --path=docs/api/openapi.json" && exit 1)
 
