@@ -29,6 +29,7 @@ use Domain\Shared\WeeklyWindow;
 use Domain\Space\Space;
 use Domain\Space\SpaceId;
 use Domain\Space\SpaceRepository;
+use Illuminate\Support\Facades\DB;
 use Infrastructure\Notification\BookingConfirmedMail;
 use Infrastructure\Notification\WebhookSignature;
 
@@ -104,6 +105,10 @@ arch('notification subscribers observe stored events')
     ->classes()
     ->toImplement(EventSubscriber::class)
     ->ignoring([BookingConfirmedMail::class, WebhookSignature::class]);
+
+arch('controllers delegate to use cases instead of touching persistence')
+    ->expect('App\Http\Controllers')
+    ->not->toUse([DB::class, 'Illuminate\Database', 'Infrastructure', BookingRepository::class, SpaceRepository::class]);
 
 arch('the domain reads time through the Clock port only')
     ->expect('Domain')

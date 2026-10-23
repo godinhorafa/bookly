@@ -23,4 +23,12 @@ final class InMemorySpaceRepository implements SpaceRepository
     {
         $this->spaces[$space->id->value] = $space;
     }
+
+    public function all(): array
+    {
+        $spaces = array_values($this->spaces);
+        usort($spaces, static fn (Space $a, Space $b): int => $a->name <=> $b->name);
+
+        return $spaces;
+    }
 }

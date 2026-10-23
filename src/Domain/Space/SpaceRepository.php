@@ -14,4 +14,9 @@ interface SpaceRepository
     public function get(SpaceId $id): Space;
 
     public function save(Space $space): void;
+
+    /**
+     * @return list<Space> ordered by name
+     */
+    public function all(): array;
 }

@@ -19,4 +19,9 @@ final class InvalidTimeSlot extends DomainException
     {
         return new self("\"{$value}\" is not a valid date and time.");
     }
+
+    public static function rangeTooLong(int $maxDays): self
+    {
+        return new self("A range can span at most {$maxDays} days.");
+    }
 }
