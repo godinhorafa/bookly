@@ -72,10 +72,12 @@ composer ci                # pint + rector + phpstan + all tests
 
 ```bash
 cp .env.example .env
-docker compose up -d       # app on http://localhost:8000, PostgreSQL on :5432
+docker compose up -d       # API on :8000, dashboard on http://localhost:5173, PostgreSQL on :5432
 docker compose exec app php artisan key:generate
 docker compose exec app composer test
 ```
+
+The database is seeded with demo data: log in as **demo@bookly.test / password**.
 
 Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `btree_gist` extension available.
 
@@ -108,6 +110,36 @@ curl -X POST localhost:8000/api/bookings \
   -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
   -H "Content-Type: application/json" \
   -d '{"space_id":"…","start":"2026-11-03T18:00:00-03:00","end":"2026-11-03T20:00:00-03:00","coupon":"WELCOME10"}'
+```
+
+## Dashboard (React + TypeScript)
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+A small dashboard in [`frontend/`](frontend): pick a space, see the day in the
+**space's own time zone** (free, busy, closed), book, read the itemised quote,
+pay with a test card and cancel. It is kept organised rather than polished:
+
+- **No hand-written API types**: `src/api/schema.d.ts` is generated from
+  `docs/api/openapi.json` with `openapi-typescript`, and the typed client
+  (`openapi-fetch`) rejects wrong paths, params or bodies at compile time.
+  CI fails if the generated types are stale.
+- Every failed request becomes a `ProblemError`, so the UI shows *all*
+  broken booking rules from the API's problem document.
+- Each mutation sends a fresh `Idempotency-Key`.
+- TanStack Query for server state; time-zone maths in one module (`lib/time.ts`), unit tested across DST changes.
+
+| Layer | Tool | What |
+|---|---|---|
+| Unit / component | Vitest + Testing Library | Time and money helpers, schedule model, booking form against a mocked API |
+| End to end | Playwright | The whole customer journey against the **real** Laravel API and PostgreSQL with seeded data: log in, book, declined card, pay, invalid request, cancel with refund |
+
+```bash
+cd frontend
+npm ci
+npm run dev        # http://localhost:5173, proxies /api to the Laravel app on :8000
+npm test           # unit + component tests
+npm run e2e        # starts the API on a fresh `bookly_e2e` database and runs Playwright
 ```
 
 ## Anti-patterns: a fat controller, refactored
@@ -144,6 +176,6 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [x] Domain events → e-mail, webhooks, audit (transactional outbox)
 - [x] REST API with OpenAPI docs, idempotency keys and feature tests
 - [x] A fat controller refactored into a thin adapter, with the same tests
-- [ ] React + TypeScript dashboard, Playwright E2E
+- [x] React + TypeScript dashboard with types generated from OpenAPI, Playwright E2E
 - [ ] NestJS real-time notification service (WebSocket)
 - [ ] Mutation testing with Infection

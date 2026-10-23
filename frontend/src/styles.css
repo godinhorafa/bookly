@@ -1,0 +1,52 @@
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --text: #1d2330;
+  --muted: #6b7280;
+  --accent: #2f5bea;
+  --free: #e7f6ec;
+  --busy: #f3e1e1;
+  --selected: #cfdcff;
+  --danger: #b42318;
+  color-scheme: light;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151c;
+    --card: #1b2029;
+    --text: #e6e9ef;
+    --muted: #9aa3b2;
+    --accent: #7c9cff;
+    --free: #1d3326;
+    --busy: #3a2424;
+    --selected: #2a3a6b;
+    --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+
+body { margin: 0; background: var(--bg); color: var(--text); }
+.layout { max-width: 960px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+header { display: flex; justify-content: space-between; align-items: center; }
+.card { background: var(--card); border-radius: 8px; padding: 16px; border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent); }
+.narrow { max-width: 360px; margin: 10vh auto; display: grid; gap: 12px; }
+label { display: grid; gap: 4px; font-size: 0.9rem; }
+input, select, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--muted); background: transparent; color: inherit; }
+button[type='submit'] { background: var(--accent); color: white; border: none; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.hint { color: var(--muted); font-size: 0.85rem; }
+.problem { color: var(--danger); }
+.success { color: #2e7d32; font-weight: 600; }
+.space-option { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; }
+.schedule { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 4px; }
+.schedule button { width: 100%; display: grid; border: none; }
+.schedule span { font-size: 0.7rem; color: var(--muted); }
+.schedule .free button { background: var(--free); cursor: pointer; }
+.schedule .busy button { background: var(--busy); }
+.schedule .selected button { background: var(--selected); }
+table { width: 100%; border-collapse: collapse; }
+td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid color-mix(in srgb, var(--muted) 20%, transparent); }
+.quote .total td { font-weight: 700; }

@@ -62,7 +62,7 @@ final readonly class BookingController
     {
         $result = $this->bookSpace->handle($request->toCommand());
 
-        return new JsonResponse(['data' => BookingPresenter::booking($result->booking, $result->quote)], 201);
+        return (new BookingResource($result->booking))->withQuote($result->quote)->response()->setStatusCode(201);
     }
 }
 ```
@@ -77,7 +77,7 @@ Each responsibility now has one home:
 | Overbooking, including races | Exclusion constraint → `SlotUnavailable` → **409** (ADR 0002) |
 | Persistence and events | Repositories + transactional outbox (ADR 0003, 0007) |
 | Error format | `DomainProblems` → RFC 9457 `application/problem+json` |
-| JSON shape | `BookingPresenter` |
+| JSON shape | `BookingResource` (an API Resource, so the OpenAPI schema is inferred from it) |
 
 ## How the refactoring was kept safe
 
