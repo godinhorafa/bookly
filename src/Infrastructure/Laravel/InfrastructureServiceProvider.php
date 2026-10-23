@@ -27,6 +27,7 @@ use Domain\Pricing\Rule\PeakHourSurcharge;
 use Domain\Shared\Clock;
 use Domain\Shared\WeeklyWindow;
 use Domain\Space\SpaceRepository;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
@@ -63,14 +64,16 @@ final class InfrastructureServiceProvider extends ServiceProvider
     /** @var array<class-string, class-string> */
     public array $singletons = [
         Clock::class => SystemClock::class,
-        // One instance per process, so its in-memory ledger survives between calls.
-        FakePaymentGateway::class => FakePaymentGateway::class,
     ];
 
     public function register(): void
     {
         $this->app->singleton(PricingPipeline::class, fn (): PricingPipeline => $this->pricingPipeline($this->app->make(Config::class)));
         $this->app->singleton(BookingRules::class, fn (): BookingRules => $this->bookingRules($this->app->make(Config::class)));
+        // The fake keeps its ledger in the default cache store, so charges survive across requests.
+        $this->app->singleton(FakePaymentGateway::class, fn (): FakePaymentGateway => new FakePaymentGateway(
+            $this->app->make(CacheFactory::class)->store(),
+        ));
         $this->app->singleton(PaymentGateways::class, fn (): PaymentGateways => $this->paymentGateways($this->app->make(Config::class)));
         $this->app->bind(OutboxRelay::class, fn (): OutboxRelay => new OutboxRelay(
             $this->app->make(Outbox::class),

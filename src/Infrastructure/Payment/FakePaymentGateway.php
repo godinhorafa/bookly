@@ -9,6 +9,9 @@ use Domain\Payment\Exception\PaymentGatewayUnavailable;
 use Domain\Payment\Exception\RefundRejected;
 use Domain\Payment\PaymentGateway;
 use Domain\Shared\Money;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 
 /**
  * In-process gateway for local development, demos and tests. It accepts the same
@@ -20,18 +23,21 @@ use Domain\Shared\Money;
  *  - pm_card_visa_chargeDeclinedInsufficientFunds   → declined: insufficient_funds
  *  - pm_fake_gateway_down                           → PaymentGatewayUnavailable (fake only)
  */
-final class FakePaymentGateway implements PaymentGateway
+final readonly class FakePaymentGateway implements PaymentGateway
 {
-    /** @var array<string, ChargeResult> */
-    private array $chargesByKey = [];
+    private const string PREFIX = 'fake-payment-gateway:';
 
-    /** @var array<string, array{amount: Money, refunded: int}> */
-    private array $charges = [];
+    /**
+     * The ledger lives in a cache store, not in PHP memory: behind a real web
+     * server every request is a fresh process, and a refund must still find
+     * the charge made by an earlier request. Without a store it stays in memory.
+     */
+    private CacheRepository $ledger;
 
-    /** @var array<string, string> */
-    private array $refundsByKey = [];
-
-    private int $sequence = 0;
+    public function __construct(?CacheRepository $ledger = null)
+    {
+        $this->ledger = $ledger ?? new Repository(new ArrayStore(serializesValues: true));
+    }
 
     public function name(): string
     {
@@ -40,8 +46,12 @@ final class FakePaymentGateway implements PaymentGateway
 
     public function charge(string $idempotencyKey, Money $amount, string $paymentMethod, string $description): ChargeResult
     {
-        if (isset($this->chargesByKey[$idempotencyKey])) {
-            return $this->chargesByKey[$idempotencyKey];
+        /** @var array{succeeded: bool, reference: ?string, decline_reason: ?string}|null $replay */
+        $replay = $this->ledger->get(self::PREFIX . "charge-key:{$idempotencyKey}");
+        if ($replay !== null) {
+            return $replay['succeeded'] && $replay['reference'] !== null
+                ? ChargeResult::succeeded($replay['reference'])
+                : ChargeResult::declined((string) $replay['decline_reason'], $replay['reference']);
         }
 
         $result = match ($paymentMethod) {
@@ -53,32 +63,50 @@ final class FakePaymentGateway implements PaymentGateway
         };
 
         if ($result->succeeded && $result->reference !== null) {
-            $this->charges[$result->reference] = ['amount' => $amount, 'refunded' => 0];
+            $this->ledger->forever(self::PREFIX . "charge:{$result->reference}", ['amount' => $amount->amount, 'currency' => $amount->currency->value, 'refunded' => 0]);
         }
 
-        return $this->chargesByKey[$idempotencyKey] = $result;
+        // Plain arrays only: the cache refuses to unserialize arbitrary objects.
+        $this->ledger->forever(self::PREFIX . "charge-key:{$idempotencyKey}", [
+            'succeeded' => $result->succeeded,
+            'reference' => $result->reference,
+            'decline_reason' => $result->declineReason,
+        ]);
+
+        return $result;
     }
 
     public function refund(string $idempotencyKey, string $chargeReference, Money $amount): string
     {
-        if (isset($this->refundsByKey[$idempotencyKey])) {
-            return $this->refundsByKey[$idempotencyKey];
+        $replay = $this->ledger->get(self::PREFIX . "refund-key:{$idempotencyKey}");
+        if (is_string($replay)) {
+            return $replay;
         }
 
-        $charge = $this->charges[$chargeReference] ?? throw RefundRejected::byGateway($this->name(), "no charge {$chargeReference}");
-        $left = $charge['amount']->amount - $charge['refunded'];
+        /** @var array{amount: int, currency: string, refunded: int}|null $charge */
+        $charge = $this->ledger->get(self::PREFIX . "charge:{$chargeReference}");
+        if ($charge === null) {
+            throw RefundRejected::byGateway($this->name(), "no charge {$chargeReference}");
+        }
 
-        if ($amount->currency !== $charge['amount']->currency || $amount->amount > $left) {
+        $left = $charge['amount'] - $charge['refunded'];
+        if ($amount->currency->value !== $charge['currency'] || $amount->amount > $left) {
             throw RefundRejected::byGateway($this->name(), "amount exceeds the {$left} minor units left to refund");
         }
 
-        $this->charges[$chargeReference]['refunded'] += $amount->amount;
+        $charge['refunded'] += $amount->amount;
+        $this->ledger->forever(self::PREFIX . "charge:{$chargeReference}", $charge);
 
-        return $this->refundsByKey[$idempotencyKey] = $this->nextReference('re');
+        $reference = $this->nextReference('re');
+        $this->ledger->forever(self::PREFIX . "refund-key:{$idempotencyKey}", $reference);
+
+        return $reference;
     }
 
     private function nextReference(string $prefix): string
     {
-        return sprintf('%s_fake_%06d', $prefix, ++$this->sequence);
+        $sequence = $this->ledger->increment(self::PREFIX . 'sequence');
+
+        return sprintf('%s_fake_%06d', $prefix, is_int($sequence) ? $sequence : 0);
     }
 }
