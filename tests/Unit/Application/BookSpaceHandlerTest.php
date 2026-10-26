@@ -72,6 +72,12 @@ it('creates a pending booking priced by the pipeline', function (): void {
         ->and($booking->price->equals($result->quote->total))->toBeTrue();
 });
 
+it('treats a blank coupon field as no coupon', function (string $blank): void {
+    $result = $this->handler->handle(bookCommand($this->space->id->value, coupon: $blank));
+
+    expect($result->quote->adjustments)->toBe([]);
+})->with(['empty' => '', 'spaces' => '   ']);
+
 it('applies a valid coupon, whatever the case the customer typed', function (): void {
     $this->coupons->save(Coupon::percentage('WELCOME10', 10, new DateTimeImmutable('2026-12-31T23:59:59Z')));
 

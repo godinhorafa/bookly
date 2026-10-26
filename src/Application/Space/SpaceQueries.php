@@ -17,7 +17,8 @@ use Domain\Space\SpaceRepository;
  */
 final readonly class SpaceQueries
 {
-    public const int MAX_RANGE_DAYS = 62;
+    // Pinned by SpaceQueriesTest (constant lines never show as covered).
+    public const int MAX_RANGE_DAYS = 62; // @pest-mutate-ignore
 
     public function __construct(
         private SpaceRepository $spaces,

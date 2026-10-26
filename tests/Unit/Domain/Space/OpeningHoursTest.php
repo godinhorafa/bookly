@@ -43,3 +43,20 @@ it('allows windows that only touch or fall on other days', function (): void {
 
     expect($hours->windows)->toHaveCount(3);
 });
+
+it('is open on every day of the week by default', function () use ($saoPaulo): void {
+    $wholeWeek = TimeSlot::fromStrings('2026-11-02T00:00:00-03:00', '2026-11-09T00:00:00-03:00');
+
+    expect(OpeningHours::alwaysOpen()->covers($wholeWeek, $saoPaulo))->toBeTrue();
+});
+
+it('accepts windows spread from a keyed array, such as configuration', function () use ($saoPaulo): void {
+    $morning = WeeklyWindow::weekdays('08:00', '12:00');
+    $evening = WeeklyWindow::weekdays('18:00', '22:00');
+
+    $hours = new OpeningHours(...['morning' => $morning, 'evening' => $evening]);
+
+    expect($hours->windows)->toBe([$morning, $evening])
+        ->and($hours->covers(TimeSlot::fromStrings('2026-11-02T19:00:00-03:00', '2026-11-02T20:00:00-03:00'), $saoPaulo))->toBeTrue()
+        ->and(fn (): OpeningHours => new OpeningHours(...['a' => $morning, 'b' => $morning]))->toThrow(InvalidSpace::class);
+});

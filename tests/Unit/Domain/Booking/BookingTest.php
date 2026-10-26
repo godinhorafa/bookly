@@ -133,3 +133,22 @@ it('records nothing when rebuilt from storage', function (): void {
 
     expect($copy->releaseEvents())->toBe([]);
 });
+
+it('publishes every field of its events, which webhooks and the realtime service rely on', function (): void {
+    $booking = Builders::booking($this->space, $this->customer);
+    $booking->confirm();
+    Builders::cancel($booking);
+    $common = [
+        'booking_id' => $booking->id->value,
+        'space_id' => $this->space->value,
+        'customer_id' => $this->customer->value,
+        'start' => $booking->slot->start->format(DATE_ATOM),
+        'end' => $booking->slot->end->format(DATE_ATOM),
+    ];
+
+    [$requested, $confirmed, $cancelled] = array_map(static fn (DomainEvent $e): array => $e->payload(), $booking->releaseEvents());
+
+    expect($requested)->toBe([...$common, 'price_amount' => 5_000, 'currency' => 'BRL'])
+        ->and($confirmed)->toBe([...$common, 'paid_amount' => 5_000, 'currency' => 'BRL'])
+        ->and($cancelled)->toBe([...$common, 'refund_amount' => 5_000, 'currency' => 'BRL']);
+});

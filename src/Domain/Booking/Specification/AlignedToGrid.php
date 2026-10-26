@@ -28,7 +28,8 @@ final readonly class AlignedToGrid extends CompositeSpecification
 
     private function isOnGrid(\DateTimeImmutable $local): bool
     {
-        $minuteOfDay = (int) $local->format('G') * 60 + (int) $local->format('i');
+        // Without the casts PHP would still read "10" * 60 as 600: equivalent mutants.
+        $minuteOfDay = (int) $local->format('G') * 60 + (int) $local->format('i'); // @pest-mutate-ignore: RemoveIntegerCast
 
         return $local->format('s.u') === '00.000000' && $minuteOfDay % $this->minutes === 0;
     }

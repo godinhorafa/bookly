@@ -75,3 +75,10 @@ it('computes the intersection of two slots', function (): void {
         ->and($slot->intersection(TimeSlot::fromStrings('2026-11-02T10:30:00Z', '2026-11-02T11:00:00Z'))?->durationInMinutes())->toBe(30)
         ->and($slot->intersection(TimeSlot::fromStrings('2026-11-02T12:00:00Z', '2026-11-02T13:00:00Z')))->toBeNull();
 });
+
+it('is equal only when both ends match', function (): void {
+    $slot = TimeSlot::fromStrings('2026-11-02T13:00:00Z', '2026-11-02T14:00:00Z');
+
+    expect($slot->equals(TimeSlot::fromStrings('2026-11-02T13:00:00Z', '2026-11-02T15:00:00Z')))->toBeFalse()
+        ->and($slot->equals(TimeSlot::fromStrings('2026-11-02T12:00:00Z', '2026-11-02T14:00:00Z')))->toBeFalse();
+});

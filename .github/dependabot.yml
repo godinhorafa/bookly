@@ -17,6 +17,13 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 5
+    ignore:
+      # Node types follow the Node.js runtime (22), not the latest release.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # openapi-typescript does not support TypeScript 7 yet.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend:
         patterns:
@@ -28,6 +35,13 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 5
+    ignore:
+      # Node types follow the Node.js runtime (22), not the latest release.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # Kept on the same TypeScript as the dashboard.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       realtime:
         patterns:

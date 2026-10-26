@@ -73,7 +73,8 @@ final readonly class CancelBookingHandler
 
     private function settledPaymentOf(BookingId $id): Payment
     {
-        foreach (array_reverse($this->payments->forBooking($id)) as $payment) {
+        // Earlier attempts may have been declined; only one attempt can succeed.
+        foreach ($this->payments->forBooking($id) as $payment) {
             if ($payment->succeeded()) {
                 return $payment;
             }

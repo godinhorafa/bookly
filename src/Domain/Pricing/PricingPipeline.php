@@ -11,12 +11,12 @@ namespace Domain\Pricing;
  */
 final readonly class PricingPipeline
 {
-    /** @var list<PricingRule> */
+    /** @var array<PricingRule> */
     private array $rules;
 
     public function __construct(PricingRule ...$rules)
     {
-        $this->rules = array_values($rules);
+        $this->rules = $rules;
     }
 
     public function quote(PricingContext $context): Quote

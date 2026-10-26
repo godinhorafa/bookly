@@ -9,12 +9,12 @@ namespace Domain\Booking\Specification;
  */
 final readonly class AnyOf extends CompositeSpecification
 {
-    /** @var list<BookingSpecification> */
+    /** @var array<BookingSpecification> */
     private array $parts;
 
     public function __construct(BookingSpecification ...$parts)
     {
-        $this->parts = array_values($parts);
+        $this->parts = $parts;
     }
 
     public function isSatisfiedBy(BookingRequest $request): bool

@@ -43,3 +43,15 @@ it('validates coupon values', function (Closure $build): void {
     '101%' => [fn (): Coupon => Coupon::percentage('TOOMUCH', 101)],
     'zero fixed' => [fn (): Coupon => Coupon::fixed('NOTHING', Money::zero(Currency::BRL))],
 ])->throws(InvalidCoupon::class);
+
+it('accepts the smallest and largest discounts', function (): void {
+    expect(Coupon::percentage('ONE', 1)->value)->toBe(1)
+        ->and(Coupon::percentage('ALL', 100)->value)->toBe(100)
+        ->and(Coupon::fixed('CENT', Money::of(1, Currency::BRL))->value)->toBe(1);
+});
+
+it('never expires without an expiry date', function (): void {
+    Coupon::percentage('FOREVER', 10)->assertUsableAt(new DateTimeImmutable('2100-01-01T00:00:00Z'));
+
+    expect(true)->toBeTrue(); // reaching here means no exception
+});

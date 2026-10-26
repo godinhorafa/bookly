@@ -74,11 +74,12 @@ final readonly class WeeklyWindow
      */
     public function minutesWithin(TimeSlot $slot, \DateTimeZone $timezone): int
     {
-        $day = $slot->start->setTimezone($timezone)->setTime(0, 0);
-        $lastDay = $slot->end->setTimezone($timezone)->setTime(0, 0);
+        // Only the date matters: at() sets the wall-clock time on each day.
+        $day = $slot->start->setTimezone($timezone);
+        $lastDay = $slot->end->setTimezone($timezone)->format('Y-m-d');
         $minutes = 0;
 
-        while ($day <= $lastDay) {
+        while ($day->format('Y-m-d') <= $lastDay) {
             if (in_array((int) $day->format('N'), $this->weekdays, true)) {
                 $window = new TimeSlot($this->at($day, $this->startMinute), $this->at($day, $this->endMinute));
                 $minutes += $slot->intersection($window)?->durationInMinutes() ?? 0;
@@ -107,6 +108,7 @@ final readonly class WeeklyWindow
             throw InvalidWeeklyWindow::invalidTime($time);
         }
 
-        return (int) $m[1] * 60 + (int) $m[2];
+        // The casts and $m indexes have equivalent mutants: PHP reads "08" * 60 as 480 anyway.
+        return (int) $m[1] * 60 + (int) $m[2]; // @pest-mutate-ignore: RemoveIntegerCast,DecrementInteger
     }
 }

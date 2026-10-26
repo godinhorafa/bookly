@@ -55,6 +55,14 @@ describe('peak hour surcharge', function (): void {
     it('validates the percentage', function (int $percent): void {
         new PeakHourSurcharge($percent, WeeklyWindow::weekdays('18:00', '22:00'));
     })->with([0, 101])->throws(InvalidPricingRule::class);
+
+    it('accepts percentages from 1 to 100', function (int $percent): void {
+        $context = pricingContext('2026-11-02T18:00:00-03:00', '2026-11-02T19:00:00-03:00');
+
+        $quote = (new PeakHourSurcharge($percent, WeeklyWindow::weekdays('18:00', '22:00')))->apply(baseQuote($context), $context);
+
+        expect($quote->total->amount)->toBe(6_000 + 60 * $percent);
+    })->with([1, 100]);
 });
 
 describe('long booking discount', function (): void {
@@ -74,7 +82,17 @@ describe('long booking discount', function (): void {
     })->with([
         'zero minutes' => [0, 10],
         'zero percent' => [240, 0],
+        'over 100 percent' => [240, 101],
     ])->throws(InvalidPricingRule::class);
+
+    it('accepts the extremes of its configuration', function (int $minutes, int $percent, int $expectedTotal): void {
+        $context = pricingContext('2026-11-02T08:00:00-03:00', '2026-11-02T09:00:00-03:00');
+
+        expect((new LongBookingDiscount($minutes, $percent))->apply(baseQuote($context), $context)->total->amount)->toBe($expectedTotal);
+    })->with([
+        'from the first minute, 1%' => [1, 1, 5_940],
+        '100% off' => [60, 100, 0],
+    ]);
 });
 
 describe('coupon discount', function (): void {

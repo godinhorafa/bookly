@@ -103,7 +103,15 @@ it('confirms a fully discounted booking without charging anything', function ():
     expect($outcome->confirmed)->toBeTrue()
         ->and($outcome->paymentId)->toBeNull()
         ->and($this->payments->forBooking($free->id))->toBe([])
-        ->and($this->bookings->get($free->id)->status())->toBe(BookingStatus::Confirmed);
+        ->and($this->bookings->get($free->id)->status())->toBe(BookingStatus::Confirmed)
+        ->and($this->outbox->names())->toBe(['booking.confirmed']);
+});
+
+it('numbers attempts from 1, so each retry gets its own idempotency key', function (): void {
+    pay('pm_card_chargeDeclined');
+    pay('pm_card_visa');
+
+    expect(array_map(static fn ($payment): int => $payment->attempt, $this->payments->forBooking($this->booking->id)))->toBe([1, 2]);
 });
 
 it('refuses to pay twice', function (): void {
