@@ -611,6 +611,10 @@
                     "price": {
                         "$ref": "#/components/schemas/MoneyResource"
                     },
+                    "hold_until": {
+                        "type": "string",
+                        "description": "Pending bookings only: pay before this instant (ISO 8601, UTC) or the booking expires and frees its slot."
+                    },
                     "quote": {
                         "anyOf": [
                             {
@@ -645,11 +649,12 @@
             },
             "BookingStatus": {
                 "type": "string",
-                "description": "Lifecycle: Pending -> Confirmed (after payment) -> Cancelled. A pending booking can also be cancelled, e.g. when payment fails.\n",
+                "description": "Lifecycle: Pending -> Confirmed (after payment) -> Cancelled. A pending booking can also be cancelled, or expire when it is not paid in time.\n",
                 "enum": [
                     "pending",
                     "confirmed",
-                    "cancelled"
+                    "cancelled",
+                    "expired"
                 ],
                 "title": "BookingStatus"
             },

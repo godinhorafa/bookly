@@ -8,6 +8,7 @@ use Domain\Booking\BookingStatus;
 use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\BookingRulesViolated;
 use Domain\Booking\Exception\SlotUnavailable;
+use Domain\Booking\PaymentHold;
 use Domain\Booking\Specification\AlignedToGrid;
 use Domain\Booking\Specification\BelowActiveBookingLimit;
 use Domain\Booking\Specification\BookingRules;
@@ -44,6 +45,7 @@ beforeEach(function (): void {
         $this->outbox = new InMemoryOutbox,
         new InlineTransaction,
         $this->clock,
+        new PaymentHold(15),
     );
 
     $this->space = Builders::space(hourlyRate: 8_000);
@@ -69,7 +71,8 @@ it('creates a pending booking priced by the pipeline', function (): void {
         ->and($booking->customerId->value)->toBe(42)
         ->and($result->quote->base->amount)->toBe(16_000)
         ->and($result->quote->total->amount)->toBe(18_000)
-        ->and($booking->price->equals($result->quote->total))->toBeTrue();
+        ->and($booking->price->equals($result->quote->total))->toBeTrue()
+        ->and($booking->holdUntil)->toEqual($this->clock->now()->modify('+15 minutes'));
 });
 
 it('treats a blank coupon field as no coupon', function (string $blank): void {

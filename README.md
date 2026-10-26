@@ -14,9 +14,9 @@
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-**In numbers:** 9 ADRs · 381 PHP tests (unit, architecture, integration,
+**In numbers:** 10 ADRs · 409 PHP tests (unit, architecture, integration,
 concurrency, HTTP) · 100% of mutants killed in the domain and use cases ·
-98% line coverage · 44 NestJS tests · 19 React tests · 8 Playwright
+98% line coverage · 47 NestJS tests · 19 React tests · 8 Playwright
 end-to-end tests against the real stack, all run by CI on every pull request.
 
 ## For reviewers: where to look
@@ -29,13 +29,13 @@ end-to-end tests against the real stack, all run by CI on every pull request.
 | **Test layers** | Unit (no framework), architecture, integration (real PostgreSQL), concurrency (8 processes), HTTP, contract suites shared by fakes and real adapters, mutation testing, React component tests, Playwright E2E ([testing strategy](#testing-strategy)) |
 | **Anti-patterns** | A fat controller committed on purpose, then refactored with the same tests passing ([write-up](docs/refactoring/fat-controller.md)). What mutation testing exposed in my own tests ([ADR 0009](docs/adr/0009-mutation-testing.md)) |
 | **Node.js** | A NestJS real-time service with ports and adapters, HMAC verification shared with PHP through one test vector, and Socket.IO with per-customer privacy rules ([`realtime/`](realtime), [ADR 0008](docs/adr/0008-realtime-service-fed-by-signed-webhooks.md)) |
-| **Written communication** | [9 ADRs](#architecture-decision-records) with context, alternatives and consequences. API problem types, webhook docs, commit messages that explain *why* |
+| **Written communication** | [10 ADRs](#architecture-decision-records) with context, alternatives and consequences. API problem types, webhook docs, commit messages that explain *why* |
 
 ## Try it in 5 minutes
 
 ```bash
 git clone https://github.com/godinhorafa/bookly.git && cd bookly
-docker compose up -d     # API, outbox relay, realtime service, dashboard, PostgreSQL
+docker compose up -d     # API, outbox relay, scheduler, realtime service, dashboard, PostgreSQL
 docker/smoke-test.sh     # optional: waits until everything is up, then books and checks the live push
 ```
 
@@ -75,6 +75,7 @@ Booking is a small domain with non-trivial rules:
 - **Cancellation policies per space**: for example, 100% refund up to 48h before and 50% up to 24h
 - **Booking rules**: minimum notice, horizon, duration, a 15-minute grid, opening hours and a per-customer cap
 - **Payments** through Stripe or a fake gateway, with safe retries
+- **Payment holds**: an unpaid booking holds its slot for 15 minutes, then expires and frees it for others
 - **Notifications**: audit trail, e-mail, signed webhooks, and live calendars
 
 ## Architecture
@@ -113,6 +114,7 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 | Overbooking | PostgreSQL `EXCLUDE USING gist` on a half-open `tstzrange`, partial on `status <> 'cancelled'` ([ADR 0002](docs/adr/0002-exclusion-constraint-for-overbooking.md)) |
 | Pricing | `PricingRule` strategies (peak hours in the space's local time, long-booking discount, coupons) composed by an ordered `PricingPipeline` that returns an itemised `Quote` ([ADR 0004](docs/adr/0004-pricing-and-cancellation-as-strategies.md)) |
 | Cancellation | `CancellationPolicy` strategies chosen per space (flexible / moderate / strict / non-refundable), tiered refunds, time injected through a `Clock` port |
+| Payment holds | Unpaid bookings expire after 15 minutes and free their slot (`booking.expired`). Payment is refused after the deadline and expiry waits a grace period longer than any charge, so the two never race, without locking across the call to Stripe ([ADR 0010](docs/adr/0010-unpaid-bookings-expire.md)) |
 | Booking rules | Composable **Specifications** (`and` / `or` / `not`): notice, horizon, duration, 15-min grid and opening hours in the space's local time, per-customer cap. Every violation is reported at once ([ADR 0005](docs/adr/0005-booking-rules-as-specifications.md)) |
 | Payments | `PaymentGateway` port with **Stripe** (REST, no SDK) and **Fake** adapters behind one contract suite that also runs against real Stripe test mode. Deterministic idempotency keys make retries safe ([ADR 0006](docs/adr/0006-payment-gateway-port-and-adapters.md)) |
 | Domain events | Aggregates record events; a **transactional outbox** stores them with the change, and a relay delivers them (**Observer**) to audit, e-mail and HMAC-signed webhooks: at least once, tracked per subscriber, ordered per booking, safe with concurrent relays (`SKIP LOCKED`) ([ADR 0007](docs/adr/0007-domain-events-and-transactional-outbox.md)) |
@@ -311,10 +313,11 @@ unchanged**: compare [the fat version](https://github.com/godinhorafa/bookly/com
 - [0007: Domain events delivered through a transactional outbox](docs/adr/0007-domain-events-and-transactional-outbox.md)
 - [0008: A NestJS real-time service fed by signed webhooks](docs/adr/0008-realtime-service-fed-by-signed-webhooks.md)
 - [0009: Mutation testing gates the domain and use cases](docs/adr/0009-mutation-testing.md)
+- [0010: Unpaid bookings expire and give their slot back](docs/adr/0010-unpaid-bookings-expire.md)
 
 ## Roadmap
 
-Done, apart from the two open items, which are next.
+Done, apart from the open item below.
 
 
 - [x] Project foundation: layers, tooling, CI, Docker
@@ -327,7 +330,7 @@ Done, apart from the two open items, which are next.
 - [ ] Recurring bookings (weekly series) with a recurrence discount
 - [x] Booking validation via composable Specifications, opening hours per space
 - [x] Payment gateway port with Fake and Stripe adapters, plus contract tests
-- [ ] Expire unpaid bookings after a few minutes
+- [x] Unpaid bookings expire after a payment hold, without racing payments
 - [x] Domain events → e-mail, webhooks, audit (transactional outbox)
 - [x] REST API with OpenAPI docs, idempotency keys and feature tests
 - [x] A fat controller refactored into a thin adapter, with the same tests

@@ -13,4 +13,7 @@ return [
     'maximum_duration_minutes' => (int) env('BOOKING_MAXIMUM_DURATION_MINUTES', 12 * 60),
     'grid_minutes' => (int) env('BOOKING_GRID_MINUTES', 15),
     'max_upcoming_per_customer' => (int) env('BOOKING_MAX_UPCOMING_PER_CUSTOMER', 5),
+
+    // How long an unpaid booking holds its slot before it expires (ADR 0010).
+    'payment_hold_minutes' => (int) env('BOOKING_PAYMENT_HOLD_MINUTES', 15),
 ];

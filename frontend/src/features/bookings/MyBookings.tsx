@@ -53,6 +53,7 @@ function BookingRow({ booking, space, onCancel, cancelling }: { booking: Booking
       <td>{formatMoney(booking.price)}</td>
       <td>
         {booking.status}
+        {booking.hold_until && <> · pay by {formatTime(booking.hold_until, timeZone)}</>}
         {booking.cancellation && <> · refunded {formatMoney(booking.cancellation.refund)}</>}
       </td>
       <td>

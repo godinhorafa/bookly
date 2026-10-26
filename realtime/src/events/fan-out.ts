@@ -25,7 +25,7 @@ export interface BookingChanged {
   readonly space_id: string;
   readonly start: string;
   readonly end: string;
-  readonly status: 'pending' | 'confirmed' | 'cancelled';
+  readonly status: 'pending' | 'confirmed' | 'cancelled' | 'expired';
 }
 
 export type Message =
@@ -36,6 +36,7 @@ const STATUS: Record<BookingEvent['type'], BookingChanged['status']> = {
   'booking.requested': 'pending',
   'booking.confirmed': 'confirmed',
   'booking.cancelled': 'cancelled',
+  'booking.expired': 'expired',
 };
 
 /**

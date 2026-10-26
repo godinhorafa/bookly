@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use Domain\Booking\Booking;
 use Domain\Booking\BookingCancellation;
+use Domain\Booking\BookingStatus;
 use Domain\Pricing\Quote;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -44,6 +45,8 @@ final class BookingResource extends JsonResource
             /** ISO 8601, UTC; the slot is half-open: [start, end). */
             'end' => $this->booking->slot->end->format(DATE_ATOM),
             'price' => new MoneyResource($this->booking->price),
+            /** Pending bookings only: pay before this instant (ISO 8601, UTC) or the booking expires and frees its slot. */
+            'hold_until' => $this->when($this->booking->status() === BookingStatus::Pending, fn (): string => $this->booking->holdUntil->format(DATE_ATOM)),
             /** Only in the response that created the booking. */
             'quote' => $this->when($this->quote instanceof Quote, fn (): ?QuoteResource => $this->quote instanceof Quote ? new QuoteResource($this->quote) : null),
             'cancellation' => $this->when($cancellation instanceof BookingCancellation, fn (): ?CancellationResource => $cancellation instanceof BookingCancellation ? new CancellationResource($cancellation) : null),

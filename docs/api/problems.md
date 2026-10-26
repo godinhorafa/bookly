@@ -20,7 +20,7 @@ Domain exceptions are mapped in one place, `App\Http\Problem\DomainProblems`.
 | <a id="not-found"></a>`not-found` | 404 | Unknown space or booking, or a booking that belongs to someone else (indistinguishable on purpose) |
 | <a id="payment-declined"></a>`payment-declined` | 402 | The card was declined; `decline_reason` carries the provider's code (e.g. `insufficient_funds`). The booking stays pending |
 | <a id="slot-unavailable"></a>`slot-unavailable` | 409 | The slot overlaps an active booking, including when two requests race for it |
-| <a id="invalid-state"></a>`invalid-state` | 409 | Paying a booking that isn't pending, cancelling one that started or was already cancelled |
+| <a id="invalid-state"></a>`invalid-state` | 409 | Paying a booking that isn't pending or whose payment hold has ended, cancelling one that started or was already cancelled or expired |
 | <a id="idempotency-conflict"></a>`idempotency-conflict` | 409 / 422 | An `Idempotency-Key` reused while the first request is in flight (409) or with a different body (422) |
 | <a id="validation-failed"></a>`validation-failed` | 422 | Malformed request body; `errors` maps each field to its messages |
 | <a id="booking-rules-violated"></a>`booking-rules-violated` | 422 | Booking rules (notice, duration, grid, opening hours…); `violations` lists *every* broken rule |

@@ -42,6 +42,17 @@ services:
     depends_on:
       - app
 
+  # Runs scheduled work: expiring unpaid bookings, pruning idempotency keys.
+  scheduler:
+    build: docker/php
+    command: php artisan schedule:work
+    restart: unless-stopped # until the app container has installed and migrated
+    volumes:
+      - .:/app
+    environment: *laravel-env
+    depends_on:
+      - app
+
   realtime:
     image: node:22-alpine
     working_dir: /app/realtime

@@ -27,6 +27,7 @@ function insertBooking(array $overrides): void
         'total_amount' => 5_000,
         'currency' => 'BRL',
         'period' => '[2026-11-02 10:00:00+00,2026-11-02 11:00:00+00)',
+        'hold_until' => '2026-11-01 12:15:00+00',
     ], $overrides)));
 }
 

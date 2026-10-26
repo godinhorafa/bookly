@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $period tstzrange literal, see TstzRange
  * @property string|null $cancelled_at timestamptz, see Timestamptz
  * @property int|null $refund_amount
+ * @property string $hold_until timestamptz, see Timestamptz
  */
 #[Unguarded]
 #[Table(name: 'bookings', keyType: 'string')]

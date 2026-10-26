@@ -7,6 +7,7 @@ namespace Tests\Support\InMemory;
 use Domain\Booking\Booking;
 use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
+use Domain\Booking\BookingStatus;
 use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\BookingNotFound;
 use Domain\Booking\Exception\SlotUnavailable;
@@ -63,6 +64,17 @@ final class InMemoryBookingRepository implements BookingRepository
             $this->bookings,
             static fn (Booking $b): bool => $b->customerId->equals($customerId) && $b->holdsSlot() && $b->slot->end > $now,
         ));
+    }
+
+    public function pendingWithHoldEndedBefore(\DateTimeImmutable $cutoff, int $limit): array
+    {
+        $due = array_values(array_filter(
+            $this->bookings,
+            static fn (Booking $b): bool => $b->status() === BookingStatus::Pending && $b->holdUntil < $cutoff,
+        ));
+        usort($due, static fn (Booking $a, Booking $b): int => $a->holdUntil <=> $b->holdUntil);
+
+        return array_map(static fn (Booking $b): Booking => clone $b, array_slice($due, 0, $limit));
     }
 
     public function forCustomer(CustomerId $customerId): array
