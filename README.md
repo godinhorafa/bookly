@@ -1,8 +1,9 @@
 # Bookly
 
-> A space booking API (coworking desks, meeting rooms, sports courts) built to
-> show how to design a Laravel application around a framework-free domain: real
-> business rules, design patterns where they make sense, and tests at every layer.
+> A space booking platform (meeting rooms, sports courts, event halls) that
+> puts a framework-free domain at the centre of a Laravel API. It has real
+> business rules, design patterns where they earn their place, tests at every
+> layer, and a NestJS service that keeps every open calendar live.
 
 ![CI](https://github.com/godinhorafa/bookly/actions/workflows/ci.yml/badge.svg)
 ![PHP 8.3](https://img.shields.io/badge/PHP-8.3-777BB4)
@@ -11,15 +12,70 @@
 ![NestJS 12](https://img.shields.io/badge/NestJS-12-E0234E)
 ![Mutation score 100%](https://img.shields.io/badge/mutation%20score-100%25-brightgreen)
 
-## Why this project
+![Dashboard](docs/screenshots/dashboard.png)
+
+**In numbers:** 9 ADRs · 381 PHP tests (unit, architecture, integration,
+concurrency, HTTP) · 100% of mutants killed in the domain and use cases ·
+98% line coverage · 44 NestJS tests · 19 React tests · 8 Playwright
+end-to-end tests against the real stack, all run by CI on every pull request.
+
+## For reviewers: where to look
+
+| Topic | Where it shows |
+|---|---|
+| **Object-oriented design** | A rich `Booking` aggregate that guards its own state transitions and records events ([`Booking.php`](src/Domain/Booking/Booking.php)). Value objects instead of primitives: [`Money`](src/Domain/Shared/Money.php) (minor units, never floats), [`TimeSlot`](src/Domain/Shared/TimeSlot.php) (half-open, UTC, DST-safe), typed ids that can't be mixed up |
+| **Design patterns** | Strategy, Specification + Composite, Adapter, Repository, Observer, Transactional Outbox, Registry: [the catalogue below](#design-patterns-and-why-each-one-is-here) links each one to its code and the problem it solves |
+| **SOLID** | [Concrete examples below](#solid-in-practice), with dependency rules **enforced by tests** ([`LayersTest.php`](tests/Arch/LayersTest.php)) |
+| **Test layers** | Unit (no framework), architecture, integration (real PostgreSQL), concurrency (8 processes), HTTP, contract suites shared by fakes and real adapters, mutation testing, React component tests, Playwright E2E ([testing strategy](#testing-strategy)) |
+| **Anti-patterns** | A fat controller committed on purpose, then refactored with the same tests passing ([write-up](docs/refactoring/fat-controller.md)). What mutation testing exposed in my own tests ([ADR 0009](docs/adr/0009-mutation-testing.md)) |
+| **Node.js** | A NestJS real-time service with ports and adapters, HMAC verification shared with PHP through one test vector, and Socket.IO with per-customer privacy rules ([`realtime/`](realtime), [ADR 0008](docs/adr/0008-realtime-service-fed-by-signed-webhooks.md)) |
+| **Written communication** | [9 ADRs](#architecture-decision-records) with context, alternatives and consequences. API problem types, webhook docs, commit messages that explain *why* |
+
+## Try it in 5 minutes
+
+```bash
+git clone https://github.com/godinhorafa/bookly.git && cd bookly
+docker compose up -d     # API, outbox relay, realtime service, dashboard, PostgreSQL
+docker/smoke-test.sh     # optional: waits until everything is up, then books and checks the live push
+```
+
+The first start takes a few minutes while the containers install their
+dependencies. It creates `.env` and an app key, migrates and seeds the
+database. CI runs exactly these commands on every pull request.
+
+1. Open **http://localhost:5173** and log in as **demo@bookly.test / password**.
+2. Pick the *Tennis court* and a weekday slot after 18:00, then book it with
+   the coupon `WELCOME10`. The quote is itemised: the base price, a +25%
+   peak-hour surcharge and the 10% coupon discount.
+3. Pay with *Insufficient funds* (the booking stays on hold, with the reason
+   shown), then with *Visa*. Cancel it and check that the refund follows the
+   space's policy.
+4. Open a **second browser window** on the same day and book from the first
+   one. The second calendar updates without a reload: API → outbox → relay →
+   signed webhook → NestJS → WebSocket.
+5. Try `22:30` for 60 minutes: every broken rule is reported at once.
+
+The API documentation is at **http://localhost:8000/docs/api**.
+
+### A short code tour
+
+1. [`BookingController`](app/Http/Controllers/Api/BookingController.php): thin HTTP adapters. Each action calls one use case and shapes the response.
+2. [`BookSpaceHandler`](src/Application/Booking/BookSpaceHandler.php): one use case, talking only to ports.
+3. [`Booking`](src/Domain/Booking/Booking.php) and [`Money`](src/Domain/Shared/Money.php): domain code in plain PHP.
+4. [`EloquentBookingRepository`](src/Infrastructure/Persistence/Eloquent/EloquentBookingRepository.php) and [the bookings migration](database/migrations/2026_10_18_000002_create_bookings_table.php): overbooking is impossible at the database level.
+5. [`ConcurrentBookingTest`](tests/Concurrency/ConcurrentBookingTest.php): 8 processes race for one slot, and exactly one wins.
+6. [`OutboxRelay`](src/Application/Event/OutboxRelay.php) and [`fan-out.ts`](realtime/src/events/fan-out.ts): how a booking reaches other people's screens.
+
+## The domain
 
 Booking is a small domain with non-trivial rules:
 
 - **No overbooking**, even under concurrent requests
-- **Dynamic pricing**: peak hours, recurring-booking discounts, coupons
-- **Configurable cancellation policies**: 100% refund up to 48h before, 50% up to 24h, and so on
-- **Multiple payment gateways** and **notifications** (e-mail, webhooks)
-- **Live calendars**: when someone books, every open dashboard updates
+- **Dynamic pricing**: peak hours in the space's local time, long-booking discounts, coupons
+- **Cancellation policies per space**: for example, 100% refund up to 48h before and 50% up to 24h
+- **Booking rules**: minimum notice, horizon, duration, a 15-minute grid, opening hours and a per-customer cap
+- **Payments** through Stripe or a fake gateway, with safe retries
+- **Notifications**: audit trail, e-mail, signed webhooks, and live calendars
 
 ## Architecture
 
@@ -65,6 +121,48 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 | Time | `TimeSlot` value object, half-open `[start, end)`, normalised to UTC, DST-safe durations |
 | Code style & safety | `declare(strict_types=1)` everywhere, `readonly` value objects, PHPStan **level max**, Pint, Rector |
 
+## Design patterns, and why each one is here
+
+| Pattern | Where | The problem it solves |
+|---|---|---|
+| **Strategy** | [`PricingRule`](src/Domain/Pricing/PricingRule.php) ([peak hours](src/Domain/Pricing/Rule/PeakHourSurcharge.php), [long booking](src/Domain/Pricing/Rule/LongBookingDiscount.php), [coupon](src/Domain/Pricing/Rule/CouponDiscount.php)), [`CancellationPolicy`](src/Domain/Cancellation/CancellationPolicy.php) | Prices and refunds vary by rule and by space. A new rule is a new class, not another `if` |
+| **Pipeline** | [`PricingPipeline`](src/Domain/Pricing/PricingPipeline.php) | Rules apply in an explicit order (surcharges before discounts), and each one adds a line to the quote |
+| **Specification + Composite** | [`Specification/`](src/Domain/Booking/Specification) (`and`, `or`, `not`) | Booking rules combine freely, and the customer sees *every* violation at once |
+| **Repository** | [`BookingRepository`](src/Domain/Booking/BookingRepository.php) and its Eloquent and in-memory implementations | The domain doesn't know about Eloquent. Unit tests run without a database |
+| **Adapter (ports and adapters)** | [`PaymentGateway`](src/Domain/Payment/PaymentGateway.php) → [Stripe](src/Infrastructure/Payment/StripePaymentGateway.php) / [Fake](src/Infrastructure/Payment/FakePaymentGateway.php); `Clock`, `Transaction`, and `IdentityProvider` in NestJS | Swap providers without touching use cases; make time and transactions testable |
+| **Registry** | [`PaymentGateways`](src/Domain/Payment/PaymentGateways.php) | A refund goes back to the gateway that took the charge, even after the default changes |
+| **Observer** | [`OutboxRelay`](src/Application/Event/OutboxRelay.php) and [`EventSubscriber`](src/Application/Event/EventSubscriber.php) | Adding a reaction to an event (e-mail, webhook, audit) never touches booking code |
+| **Transactional Outbox** | [`PostgresOutbox`](src/Infrastructure/Event/PostgresOutbox.php) | An event exists if, and only if, its change was committed. No lost or phantom notifications |
+| **Value Object** | [`Money`](src/Domain/Shared/Money.php), [`TimeSlot`](src/Domain/Shared/TimeSlot.php), [`WeeklyWindow`](src/Domain/Shared/WeeklyWindow.php) | Rules about money and time live in one place instead of in every caller |
+| **Named constructors** | `Booking::request`, `Coupon::percentage`, `ChargeResult::declined` | Valid objects only, with intent in the name |
+
+Not every pattern is used everywhere. For example, there are no
+interfaces for value objects and no repository for read-only lookups that one
+query handles.
+
+## SOLID in practice
+
+- **Single responsibility:** a controller translates HTTP
+  ([`BookingController`](app/Http/Controllers/Api/BookingController.php)), a
+  handler runs a use case ([`BookSpaceHandler`](src/Application/Booking/BookSpaceHandler.php)),
+  and one class maps domain errors to HTTP problems
+  ([`DomainProblems`](app/Http/Problem/DomainProblems.php)). Idempotency is
+  middleware, not controller code ([`Idempotency`](app/Http/Middleware/Idempotency.php)).
+- **Open/closed:** a new pricing rule, cancellation policy, booking rule or
+  event subscriber is a new class plus one line in
+  [`InfrastructureServiceProvider`](src/Infrastructure/Laravel/InfrastructureServiceProvider.php).
+  Existing code doesn't change.
+- **Liskov substitution:** the fakes are proven substitutable. One
+  [contract suite](tests/Contracts) runs against the in-memory and PostgreSQL
+  repositories, the in-memory and PostgreSQL outboxes, and the fake and Stripe
+  gateways.
+- **Interface segregation:** small ports. `Clock` and `Transaction` have one
+  method each, and `PaymentGateway` has three.
+- **Dependency inversion:** the domain and use cases depend on interfaces they
+  own, and the infrastructure implements them. The build fails if `src/Domain`
+  imports Laravel, Carbon or an outer layer
+  ([`LayersTest`](tests/Arch/LayersTest.php)).
+
 ## Testing strategy
 
 | Suite | What it covers | Boots Laravel? | Database |
@@ -103,14 +201,9 @@ composer test:coverage     # coverage report, fails under 95%
 
 ## Running locally
 
-```bash
-cp .env.example .env
-docker compose up -d       # API :8000, dashboard http://localhost:5173, realtime :3000, PostgreSQL :5432
-docker compose exec app php artisan key:generate
-docker compose exec app composer test
-```
-
-The database is seeded with demo data: log in as **demo@bookly.test / password**.
+See [Try it in 5 minutes](#try-it-in-5-minutes) for Docker. The services run on
+these ports: API :8000, dashboard :5173, realtime :3000, PostgreSQL :5432. Run
+the PHP suite with `docker compose exec app composer test`.
 
 Without Docker, you need PHP 8.3 with `pdo_pgsql` and PostgreSQL 16 with the `btree_gist` extension available.
 
@@ -146,8 +239,6 @@ curl -X POST localhost:8000/api/bookings \
 ```
 
 ## Dashboard (React + TypeScript)
-
-![Dashboard](docs/screenshots/dashboard.png)
 
 A small dashboard in [`frontend/`](frontend): pick a space, see the day in the
 **space's own time zone** (free, busy, closed), book, read the itemised quote,
@@ -205,7 +296,9 @@ The booking endpoint was first committed as a deliberate **fat controller**
 (validation, rules, pricing and SQL in one 89-line method, with real bugs:
 peak hours in UTC, no opening hours, an unhandled race). The next commit turns it into a 6-line
 HTTP adapter over the use case, with the **same feature tests passing
-unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-controller.md).
+unchanged**: compare [the fat version](https://github.com/godinhorafa/bookly/commit/faa34de) with
+[the refactor](https://github.com/godinhorafa/bookly/commit/3829681), or read
+[docs/refactoring/fat-controller.md](docs/refactoring/fat-controller.md).
 
 ## Architecture Decision Records
 
@@ -220,6 +313,9 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [0009: Mutation testing gates the domain and use cases](docs/adr/0009-mutation-testing.md)
 
 ## Roadmap
+
+Done, apart from the two open items, which are next.
+
 
 - [x] Project foundation: layers, tooling, CI, Docker
 - [x] `Money` and `TimeSlot` value objects
