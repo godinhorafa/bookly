@@ -54,10 +54,10 @@ something that never happened.
   the event id, webhook receivers get `Bookly-Event-Id`). E-mail can't be made
   strictly idempotent; per-subscriber tracking keeps duplicates to the rare
   case of a crash between sending and recording.
-- Events reach subscribers with up to a minute of delay (the schedule). The
-  relay can run in a tighter loop if that ever matters.
-- The same outbox will feed the NestJS real-time service through a queue
-  subscriber, without changing the use cases.
+- With only the schedule, events reach subscribers up to a minute late.
+  `outbox:relay --watch` polls continuously instead (see ADR 0008).
+- The same outbox feeds the NestJS real-time service, as one more webhook
+  endpoint, without changing the use cases ([ADR 0008](0008-realtime-service-fed-by-signed-webhooks.md)).
 - Timestamps in these tables keep microseconds. With Laravel's default
   precision of 0, PostgreSQL *rounds* `12:00:00.6` up to `12:00:01`, so a
   freshly appended event would not be due for up to half a second. The

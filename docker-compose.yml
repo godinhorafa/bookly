@@ -1,3 +1,14 @@
+x-laravel-env: &laravel-env
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_DATABASE: bookly
+  DB_USERNAME: postgres
+  DB_PASSWORD: postgres
+  # Booking events reach the realtime service as signed webhooks.
+  WEBHOOK_ENDPOINTS: http://realtime:3000/webhooks/bookly
+  WEBHOOK_SECRET: &webhook-secret local-dev-webhook-secret
+
 services:
   app:
     build: docker/php
@@ -6,16 +17,33 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-    environment:
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: bookly
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+    environment: *laravel-env
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Delivers domain events from the outbox as soon as they are committed.
+  relay:
+    build: docker/php
+    command: php artisan outbox:relay --watch
+    restart: unless-stopped # until the app container has installed and migrated
+    volumes:
+      - .:/app
+    environment: *laravel-env
+    depends_on:
+      - app
+
+  realtime:
+    image: node:22-alpine
+    working_dir: /app/realtime
+    command: sh -c "npm ci && npm run build && npm start"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    environment:
+      API_URL: http://app:8000
+      WEBHOOK_SECRET: *webhook-secret
 
   frontend:
     image: node:22-alpine
@@ -27,8 +55,10 @@ services:
       - .:/app
     environment:
       API_URL: http://app:8000
+      REALTIME_URL: http://realtime:3000
     depends_on:
       - app
+      - realtime
 
   postgres:
     image: postgres:16-alpine

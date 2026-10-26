@@ -8,6 +8,7 @@
 ![PHP 8.3](https://img.shields.io/badge/PHP-8.3-777BB4)
 ![PHPStan max](https://img.shields.io/badge/PHPStan-level%20max-brightgreen)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)
+![NestJS 12](https://img.shields.io/badge/NestJS-12-E0234E)
 
 ## Why this project
 
@@ -17,6 +18,7 @@ Booking is a small domain with non-trivial rules:
 - **Dynamic pricing**: peak hours, recurring-booking discounts, coupons
 - **Configurable cancellation policies**: 100% refund up to 48h before, 50% up to 24h, and so on
 - **Multiple payment gateways** and **notifications** (e-mail, webhooks)
+- **Live calendars**: when someone books, every open dashboard updates
 
 ## Architecture
 
@@ -27,6 +29,19 @@ flowchart LR
     APP["Application\\<br/>use cases, DTOs, ports"] --> DOMAIN
     INFRA --> DOMAIN
     DOMAIN["Domain\\<br/>entities, value objects, policies<br/><i>plain PHP, no framework</i>"]
+```
+
+Around the API, booking events flow out through the outbox to a separate
+real-time service:
+
+```mermaid
+flowchart LR
+    API["Laravel API"] -- "same transaction" --> OUTBOX[("outbox")]
+    OUTBOX --> RELAY["outbox:relay --watch"]
+    RELAY -- "signed webhook" --> RT["NestJS realtime service"]
+    RELAY --> OTHER["audit, e-mail, partner webhooks"]
+    RT -- "Socket.IO" --> DASH["React dashboards"]
+    DASH -- "REST (refetch)" --> API
 ```
 
 Dependencies point inwards only. This is **enforced by architecture tests**
@@ -44,6 +59,7 @@ Carbon or an outer layer. See [ADR 0001](docs/adr/0001-layered-architecture-with
 | Booking rules | Composable **Specifications** (`and` / `or` / `not`): notice, horizon, duration, 15-min grid and opening hours in the space's local time, per-customer cap. Every violation is reported at once ([ADR 0005](docs/adr/0005-booking-rules-as-specifications.md)) |
 | Payments | `PaymentGateway` port with **Stripe** (REST, no SDK) and **Fake** adapters behind one contract suite that also runs against real Stripe test mode. Deterministic idempotency keys make retries safe ([ADR 0006](docs/adr/0006-payment-gateway-port-and-adapters.md)) |
 | Domain events | Aggregates record events; a **transactional outbox** stores them with the change, and a relay delivers them (**Observer**) to audit, e-mail and HMAC-signed webhooks: at least once, tracked per subscriber, ordered per booking, safe with concurrent relays (`SKIP LOCKED`) ([ADR 0007](docs/adr/0007-domain-events-and-transactional-outbox.md)) |
+| Real time | A **NestJS** service receives the same signed webhooks as any partner, dedupes redeliveries, and pushes over Socket.IO: *slot taken/freed* to everyone (no personal data), *your booking changed* to its owner. Dashboards refetch on these hints ([ADR 0008](docs/adr/0008-realtime-service-fed-by-signed-webhooks.md)) |
 | Money | `Money` value object in minor units with a `Currency` enum, so no floats |
 | Time | `TimeSlot` value object, half-open `[start, end)`, normalised to UTC, DST-safe durations |
 | Code style & safety | `declare(strict_types=1)` everywhere, `readonly` value objects, PHPStan **level max**, Pint, Rector |
@@ -62,6 +78,12 @@ The same **contract suite** (`tests/Contracts`) runs against the in-memory and
 the PostgreSQL repositories, so the fakes used in unit tests can't drift from
 production behaviour ([ADR 0003](docs/adr/0003-repositories-with-contract-tests.md)).
 
+The realtime service has its own suite (Vitest, `realtime/`): unit tests for
+the signature, parsing and fan-out rules, and end-to-end tests that drive the
+real Nest app over HTTP and Socket.IO. The webhook signature is checked by
+**both** languages against one shared example
+([`docs/api/webhook-signature.example.json`](docs/api/webhook-signature.example.json)).
+
 ```bash
 composer test:unit         # fast feedback, no framework
 composer test:integration  # against PostgreSQL, including the concurrency test
@@ -72,7 +94,7 @@ composer ci                # pint + rector + phpstan + all tests
 
 ```bash
 cp .env.example .env
-docker compose up -d       # API on :8000, dashboard on http://localhost:5173, PostgreSQL on :5432
+docker compose up -d       # API :8000, dashboard http://localhost:5173, realtime :3000, PostgreSQL :5432
 docker compose exec app php artisan key:generate
 docker compose exec app composer test
 ```
@@ -127,20 +149,44 @@ pay with a test card and cancel. It is kept organised rather than polished:
 - Every failed request becomes a `ProblemError`, so the UI shows *all*
   broken booking rules from the API's problem document.
 - Each mutation sends a fresh `Idempotency-Key`.
+- **Live updates**: a Socket.IO connection to the realtime service invalidates
+  the affected queries, and a *Live activity* card lists recent changes.
+  Without the service, the dashboard works as before.
 - TanStack Query for server state; time-zone maths in one module (`lib/time.ts`), unit tested across DST changes.
 
 | Layer | Tool | What |
 |---|---|---|
 | Unit / component | Vitest + Testing Library | Time and money helpers, schedule model, booking form against a mocked API |
-| End to end | Playwright | The whole customer journey against the **real** Laravel API and PostgreSQL with seeded data: log in, book, declined card, pay, invalid request, cancel with refund |
+| End to end | Playwright | The whole customer journey against the **real** Laravel API and PostgreSQL with seeded data: log in, book, declined card, pay, invalid request, cancel with refund. Then **two browsers**: one books and cancels, and the other's calendar follows without a reload (API → outbox → relay → webhook → NestJS → WebSocket) |
 
 ```bash
 cd frontend
 npm ci
 npm run dev        # http://localhost:5173, proxies /api to the Laravel app on :8000
 npm test           # unit + component tests
-npm run e2e        # starts the API on a fresh `bookly_e2e` database and runs Playwright
+npm run e2e        # starts the API (fresh `bookly_e2e` database), relay and realtime service, then runs Playwright
 ```
+
+## Realtime service (NestJS)
+
+[`realtime/`](realtime) is a small NestJS 12 app, organised as ports and adapters like the API:
+
+| Piece | Role |
+|---|---|
+| `WebhooksController` + `BooklySignatureGuard` | `POST /webhooks/bookly`: HMAC over the raw body, 5-minute replay window |
+| `parseBookingEvent` | Validates the body; unknown event types are accepted and ignored |
+| `BookingEvents` + `RecentEvents` | Dedupes at-least-once redeliveries, then fans out |
+| `fanOut` | Pure function: who hears what (the privacy rules live and are tested here) |
+| `RealtimeGateway` | Socket.IO; authenticates the handshake through the `IdentityProvider` port (`GET /api/me` on the API) |
+
+```bash
+cd realtime
+npm ci
+npm test           # unit + end-to-end (real HTTP and WebSocket)
+WEBHOOK_SECRET=… API_URL=http://127.0.0.1:8000 npm run dev
+```
+
+The webhook format and how to verify it are in [docs/api/webhooks.md](docs/api/webhooks.md).
 
 ## Anti-patterns: a fat controller, refactored
 
@@ -159,6 +205,7 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [0005: Booking rules as composable specifications](docs/adr/0005-booking-rules-as-specifications.md)
 - [0006: Payment gateway as a port with adapters and a shared contract](docs/adr/0006-payment-gateway-port-and-adapters.md)
 - [0007: Domain events delivered through a transactional outbox](docs/adr/0007-domain-events-and-transactional-outbox.md)
+- [0008: A NestJS real-time service fed by signed webhooks](docs/adr/0008-realtime-service-fed-by-signed-webhooks.md)
 
 ## Roadmap
 
@@ -177,5 +224,5 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [x] REST API with OpenAPI docs, idempotency keys and feature tests
 - [x] A fat controller refactored into a thin adapter, with the same tests
 - [x] React + TypeScript dashboard with types generated from OpenAPI, Playwright E2E
-- [ ] NestJS real-time notification service (WebSocket)
+- [x] NestJS real-time notification service (WebSocket)
 - [ ] Mutation testing with Infection

@@ -14,6 +14,8 @@ final readonly class BookingCancelled implements DomainEvent
         public string $bookingId,
         public string $spaceId,
         public int $customerId,
+        public string $start,
+        public string $end,
         public int $refundAmount,
         public string $currency,
     ) {}
@@ -24,6 +26,9 @@ final readonly class BookingCancelled implements DomainEvent
             $booking->id->value,
             $booking->spaceId->value,
             $booking->customerId->value,
+            // The freed slot, so listeners can update availability without a lookup.
+            $booking->slot->start->format(DATE_ATOM),
+            $booking->slot->end->format(DATE_ATOM),
             $refund->amount,
             $refund->currency->value,
         );
@@ -45,6 +50,8 @@ final readonly class BookingCancelled implements DomainEvent
             'booking_id' => $this->bookingId,
             'space_id' => $this->spaceId,
             'customer_id' => $this->customerId,
+            'start' => $this->start,
+            'end' => $this->end,
             'refund_amount' => $this->refundAmount,
             'currency' => $this->currency,
         ];
