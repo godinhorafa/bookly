@@ -173,6 +173,27 @@ jobs:
       - name: Build
         run: npm run build
 
+  docker:
+    name: Docker quickstart (the reviewer's path)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Start the stack from a fresh clone
+        run: docker compose up -d --build
+
+      - name: Smoke test (login, booking, live push)
+        run: docker/smoke-test.sh
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop
+        if: always()
+        run: docker compose down -v
+
   e2e:
     name: End-to-end (Playwright, real API + PostgreSQL)
     runs-on: ubuntu-latest

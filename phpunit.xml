@@ -36,7 +36,9 @@
         <env name="DB_CONNECTION" value="pgsql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="5432"/>
-        <env name="DB_DATABASE" value="bookly_test"/>
+        <!-- Forced: inside docker compose DB_DATABASE points at the dev database, which RefreshDatabase would wipe. -->
+        <env name="DB_DATABASE" value="bookly_test" force="true"/>
+        <server name="DB_DATABASE" value="bookly_test" force="true"/>
         <env name="DB_USERNAME" value="postgres"/>
         <env name="DB_PASSWORD" value="postgres"/>
         <env name="DB_URL" value=""/>
