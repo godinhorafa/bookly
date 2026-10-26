@@ -242,9 +242,12 @@ curl -X POST localhost:8000/api/bookings \
 
 ## Dashboard (React + TypeScript)
 
-A small dashboard in [`frontend/`](frontend): pick a space, see the day in the
-**space's own time zone** (free, busy, closed), book, read the itemised quote,
-pay with a test card and cancel. It is kept organised rather than polished:
+A dashboard in [`frontend/`](frontend), built with **Tailwind CSS v4 and
+shadcn/ui** (Radix primitives, light and dark themes following the system). Pick
+a space, choose a day, see free and taken slots in the **space's own time zone**,
+book and read the itemised quote, pay with a test card before the hold runs out
+(a live countdown), and cancel after a confirmation that states the refund
+policy. Under the hood:
 
 - **No hand-written API types**: `src/api/schema.d.ts` is generated from
   `docs/api/openapi.json` with `openapi-typescript`, and the typed client
@@ -260,7 +263,7 @@ pay with a test card and cancel. It is kept organised rather than polished:
 
 | Layer | Tool | What |
 |---|---|---|
-| Unit / component | Vitest + Testing Library | Time and money helpers, schedule model, booking form against a mocked API |
+| Unit / component | Vitest + Testing Library | Time and money helpers, schedule model, booking form against a mocked API, live updates with a fake socket |
 | End to end | Playwright | The whole customer journey against the **real** Laravel API and PostgreSQL with seeded data: log in, book, declined card, pay, invalid request, cancel with refund. Then **two browsers**: one books and cancels, and the other's calendar follows without a reload (API → outbox → relay → webhook → NestJS → WebSocket) |
 
 ```bash
