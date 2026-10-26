@@ -13,13 +13,15 @@ services:
   app:
     build: docker/php
     # First run: creates .env and an app key, so `docker compose up` is all a fresh clone needs.
+    # --no-reload: otherwise `serve` hides this container's environment (DB_HOST=postgres...)
+    # from the web server whenever PHP fills $_ENV, as the official images do (no php.ini).
     command: >-
       sh -c "([ -f .env ] || cp .env.example .env)
       && composer install
       && (grep -q '^APP_KEY=.' .env || php artisan key:generate --force)
       && php artisan migrate --force
       && php artisan db:seed --force
-      && php artisan serve --host=0.0.0.0 --port=8000"
+      && php artisan serve --host=0.0.0.0 --port=8000 --no-reload"
     ports:
       - "8000:8000"
     volumes:

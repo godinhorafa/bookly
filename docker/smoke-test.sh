@@ -17,7 +17,18 @@ wait_for http://localhost:8000/up
 wait_for http://localhost:3000/health
 wait_for http://localhost:5173
 
-api() { curl -fsS -H 'Accept: application/json' -H 'Content-Type: application/json' "$@"; }
+# Prints the body, or the status and body on an HTTP error so CI logs say what went wrong.
+api() {
+  local response status
+  response=$(curl -sS -w '\n%{http_code}' -H 'Accept: application/json' -H 'Content-Type: application/json' "$@")
+  status=${response##*$'\n'}
+  if [ "$status" -ge 400 ]; then
+    echo "HTTP ${status} from $*: ${response%$'\n'*}" >&2
+    docker compose logs --tail=30 app >&2 || true
+    return 1
+  fi
+  printf '%s' "${response%$'\n'*}"
+}
 
 token=$(api -X POST http://localhost:5173/api/tokens \
   -d '{"email":"demo@bookly.test","password":"password","device_name":"smoke-test"}' | jq -r .token)
