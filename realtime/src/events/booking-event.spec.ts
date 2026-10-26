@@ -13,7 +13,7 @@ describe('parseBookingEvent', () => {
     });
   });
 
-  it.each(['booking.requested', 'booking.confirmed', 'booking.cancelled'])('accepts %s', (type) => {
+  it.each(['booking.requested', 'booking.confirmed', 'booking.cancelled', 'booking.expired'])('accepts %s', (type) => {
     expect(parseBookingEvent(webhookBody(type))?.type).toBe(type);
   });
 
@@ -29,6 +29,7 @@ describe('parseBookingEvent', () => {
     ['a customer id that is not an integer', webhookBody('booking.requested', { customer_id: '7' })],
     ['an end that is not a timestamp', webhookBody('booking.cancelled', { end: 'tomorrow' })],
     ['the amount of another event', webhookBody('booking.cancelled', { refund_amount: undefined, paid_amount: 1 })],
+    ['an amount without a currency', webhookBody('booking.requested', { currency: undefined })],
   ])('rejects a body with %s', (_case, body) => {
     expect(() => parseBookingEvent(body)).toThrow(MalformedEvent);
   });

@@ -6,6 +6,7 @@ namespace Domain\Booking;
 
 use Domain\Booking\Event\BookingCancelled;
 use Domain\Booking\Event\BookingConfirmed;
+use Domain\Booking\Event\BookingExpired;
 use Domain\Booking\Event\BookingRequested;
 use Domain\Booking\Exception\BookingAlreadyStarted;
 use Domain\Booking\Exception\InvalidBookingTransition;
@@ -16,8 +17,8 @@ use Domain\Shared\TimeSlot;
 use Domain\Space\SpaceId;
 
 /**
- * Aggregate root. Identity, space, customer, slot and price never change after
- * the booking is requested; only the status (and, once cancelled, the refund) evolve.
+ * Aggregate root. Identity, space, customer, slot, price and payment deadline never
+ * change after the booking is requested; only the status (and, once cancelled, the refund) evolve.
  */
 final class Booking
 {
@@ -29,6 +30,8 @@ final class Booking
         public readonly CustomerId $customerId,
         public readonly TimeSlot $slot,
         public readonly Money $price,
+        /** Until when a pending booking holds its slot without being paid. UTC. */
+        public readonly \DateTimeImmutable $holdUntil,
         private BookingStatus $status,
         private ?BookingCancellation $cancellation = null,
     ) {}
@@ -39,8 +42,9 @@ final class Booking
         CustomerId $customerId,
         TimeSlot $slot,
         Money $price,
+        \DateTimeImmutable $holdUntil,
     ): self {
-        $booking = new self($id, $spaceId, $customerId, $slot, $price, BookingStatus::Pending);
+        $booking = new self($id, $spaceId, $customerId, $slot, $price, self::utc($holdUntil), BookingStatus::Pending);
         $booking->record(BookingRequested::of($booking));
 
         return $booking;
@@ -55,15 +59,39 @@ final class Booking
         CustomerId $customerId,
         TimeSlot $slot,
         Money $price,
+        \DateTimeImmutable $holdUntil,
         BookingStatus $status,
         ?BookingCancellation $cancellation = null,
     ): self {
-        return new self($id, $spaceId, $customerId, $slot, $price, $status, $cancellation);
+        return new self($id, $spaceId, $customerId, $slot, $price, self::utc($holdUntil), $status, $cancellation);
     }
 
     public function status(): BookingStatus
     {
         return $this->status;
+    }
+
+    /**
+     * Whether an unpaid booking has run out of time to be paid.
+     */
+    public function holdHasEnded(\DateTimeImmutable $now): bool
+    {
+        return $this->status === BookingStatus::Pending && $now >= $this->holdUntil;
+    }
+
+    /**
+     * Releases the slot of a booking that was not paid in time.
+     */
+    public function expire(\DateTimeImmutable $now): void
+    {
+        $this->assertCanTransitionTo(BookingStatus::Expired);
+
+        if ($now < $this->holdUntil) {
+            throw InvalidBookingTransition::holdNotOver($this->id, $this->holdUntil);
+        }
+
+        $this->status = BookingStatus::Expired;
+        $this->record(BookingExpired::of($this));
     }
 
     public function confirm(): void
@@ -112,6 +140,11 @@ final class Booking
             && $this->holdsSlot()
             && $other->holdsSlot()
             && $this->slot->overlaps($other->slot);
+    }
+
+    private static function utc(\DateTimeImmutable $instant): \DateTimeImmutable
+    {
+        return $instant->setTimezone(new \DateTimeZone('UTC'));
     }
 
     private function transitionTo(BookingStatus $next): void

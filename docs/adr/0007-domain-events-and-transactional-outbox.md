@@ -19,7 +19,7 @@ something that never happened.
 ## Decision
 
 - **Aggregates record domain events** (`booking.requested`,
-  `booking.confirmed`, `booking.cancelled`) as their state changes. Events are
+  `booking.confirmed`, `booking.cancelled`, and later `booking.expired`) as their state changes. Events are
   immutable value objects with a stable wire name and a scalar payload.
 - **Transactional outbox.** Use cases release the events and append them to the
   `outbox` table **in the same database transaction** as the aggregate. The

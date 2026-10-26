@@ -11,6 +11,7 @@ use Domain\Booking\BookingId;
 use Domain\Booking\BookingRepository;
 use Domain\Booking\CustomerId;
 use Domain\Booking\Exception\SlotUnavailable;
+use Domain\Booking\PaymentHold;
 use Domain\Booking\Specification\BookingRequest;
 use Domain\Booking\Specification\BookingRules;
 use Domain\Pricing\Coupon;
@@ -33,6 +34,7 @@ final readonly class BookSpaceHandler
         private Outbox $outbox,
         private Transaction $transaction,
         private Clock $clock,
+        private PaymentHold $hold,
     ) {}
 
     public function handle(BookSpace $command): BookSpaceResult
@@ -68,6 +70,7 @@ final readonly class BookSpaceHandler
             $customerId,
             $slot,
             $quote->total,
+            $this->hold->from($now),
         );
 
         $this->transaction->run(function () use ($booking, $now): void {

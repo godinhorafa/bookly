@@ -45,6 +45,33 @@ it('answers 402 with the reason when the card is declined, and keeps the booking
     $this->getJson("/api/bookings/{$id}")->assertJsonPath('data.status', 'pending');
 });
 
+it('tells the customer until when an unpaid booking is held', function (): void {
+    $id = createBooking();
+
+    $this->getJson("/api/bookings/{$id}")
+        ->assertJsonPath('data.status', 'pending')
+        ->assertJsonPath('data.hold_until', '2026-11-01T12:15:00+00:00');
+
+    $this->postJson("/api/bookings/{$id}/payment", ['payment_method' => 'pm_card_visa'])
+        ->assertOk()
+        ->assertJsonMissingPath('data.hold_until');
+});
+
+it('refuses payment after the hold, then expires the booking and frees the slot', function (): void {
+    $id = createBooking();
+    $this->clock->travelTo('2026-11-01T12:15:00Z');
+
+    $this->postJson("/api/bookings/{$id}/payment", ['payment_method' => 'pm_card_visa'])
+        ->assertConflict()
+        ->assertJsonPath('type', 'https://github.com/godinhorafa/bookly/blob/main/docs/api/problems.md#invalid-state');
+
+    $this->clock->travelTo('2026-11-01T12:20:00Z');
+    $this->artisan('bookings:expire')->expectsOutput('expired: 1')->assertSuccessful();
+
+    $this->getJson("/api/bookings/{$id}")->assertJsonPath('data.status', 'expired');
+    createBooking(); // the same slot is free again
+});
+
 it('refuses to pay twice', function (): void {
     $id = createBooking();
     $this->postJson("/api/bookings/{$id}/payment", ['payment_method' => 'pm_card_visa'])->assertOk();

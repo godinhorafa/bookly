@@ -14,4 +14,9 @@ final class InvalidBookingTransition extends DomainException
     {
         return new self("Booking {$id} cannot go from {$from->value} to {$to->value}.");
     }
+
+    public static function holdNotOver(BookingId $id, \DateTimeImmutable $holdUntil): self
+    {
+        return new self("Booking {$id} can still be paid until {$holdUntil->format(DATE_ATOM)}.");
+    }
 }

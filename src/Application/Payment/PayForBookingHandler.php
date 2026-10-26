@@ -51,6 +51,12 @@ final readonly class PayForBookingHandler
             throw BookingNotPayable::because($id, $booking->status());
         }
 
+        // Checked before charging. Expiry waits a grace period longer than any
+        // charge takes, so a payment that starts in time is never overtaken (ADR 0010).
+        if ($booking->holdHasEnded($this->clock->now())) {
+            throw BookingNotPayable::holdEnded($id, $booking->holdUntil);
+        }
+
         // Fully discounted bookings have nothing to charge (providers reject zero amounts).
         if ($booking->price->isZero()) {
             $booking->confirm();

@@ -107,7 +107,7 @@ it('conflicts only with active, overlapping bookings of the same space', functio
 
 it('keeps the slot-holding rule in sync with the database constraint', function (): void {
     expect(array_map(static fn (BookingStatus $s): bool => $s->holdsSlot(), BookingStatus::cases()))
-        ->toBe([true, true, false]);
+        ->toBe([true, true, false, false]);
 });
 
 it('records what happened to it as domain events', function (): void {
@@ -129,7 +129,7 @@ it('records what happened to it as domain events', function (): void {
 
 it('records nothing when rebuilt from storage', function (): void {
     $booking = Builders::booking($this->space, $this->customer);
-    $copy = Booking::reconstitute($booking->id, $booking->spaceId, $booking->customerId, $booking->slot, $booking->price, BookingStatus::Pending);
+    $copy = Booking::reconstitute($booking->id, $booking->spaceId, $booking->customerId, $booking->slot, $booking->price, $booking->holdUntil, BookingStatus::Pending);
 
     expect($copy->releaseEvents())->toBe([]);
 });
@@ -151,4 +151,58 @@ it('publishes every field of its events, which webhooks and the realtime service
     expect($requested)->toBe([...$common, 'price_amount' => 5_000, 'currency' => 'BRL'])
         ->and($confirmed)->toBe([...$common, 'paid_amount' => 5_000, 'currency' => 'BRL'])
         ->and($cancelled)->toBe([...$common, 'refund_amount' => 5_000, 'currency' => 'BRL']);
+});
+
+describe('payment hold', function (): void {
+    beforeEach(function (): void {
+        $this->booking = Builders::booking($this->space, $this->customer, holdUntil: '2026-11-01T09:15:00-03:00');
+        $this->booking->releaseEvents();
+    });
+
+    it('keeps its deadline in UTC', function (): void {
+        expect($this->booking->holdUntil->format(DATE_ATOM))->toBe('2026-11-01T12:15:00+00:00');
+    });
+
+    it('ends exactly at the deadline, and only for an unpaid booking', function (): void {
+        expect($this->booking->holdHasEnded(new DateTimeImmutable('2026-11-01T12:14:59Z')))->toBeFalse()
+            ->and($this->booking->holdHasEnded(new DateTimeImmutable('2026-11-01T12:15:00Z')))->toBeTrue();
+
+        $this->booking->confirm();
+        expect($this->booking->holdHasEnded(new DateTimeImmutable('2026-11-01T13:00:00Z')))->toBeFalse();
+    });
+
+    it('expires once the deadline has passed, freeing the slot', function (): void {
+        $this->booking->expire(new DateTimeImmutable('2026-11-01T12:15:00Z'));
+
+        $events = $this->booking->releaseEvents();
+        expect($this->booking->status())->toBe(BookingStatus::Expired)
+            ->and($this->booking->holdsSlot())->toBeFalse()
+            ->and($events)->toHaveCount(1)
+            ->and($events[0]::name())->toBe('booking.expired')
+            ->and($events[0]->payload())->toBe([
+                'booking_id' => $this->booking->id->value,
+                'space_id' => $this->space->value,
+                'customer_id' => 7,
+                'start' => '2026-11-02T10:00:00+00:00',
+                'end' => '2026-11-02T11:00:00+00:00',
+            ]);
+    });
+
+    it('cannot expire before the deadline', function (): void {
+        $this->booking->expire(new DateTimeImmutable('2026-11-01T12:14:59Z'));
+    })->throws(InvalidBookingTransition::class, 'can still be paid until 2026-11-01T12:15:00+00:00');
+
+    it('never expires a paid booking', function (): void {
+        $this->booking->confirm();
+        $this->booking->expire(new DateTimeImmutable('2026-11-01T13:00:00Z'));
+    })->throws(InvalidBookingTransition::class, 'cannot go from confirmed to expired');
+
+    it('is final once expired', function (Closure $next): void {
+        $this->booking->expire(new DateTimeImmutable('2026-11-01T12:15:00Z'));
+
+        $next($this->booking);
+    })->with([
+        'pay' => [fn (Booking $b) => $b->confirm()],
+        'cancel' => [fn (Booking $b): Booking => Builders::cancel($b)],
+    ])->throws(InvalidBookingTransition::class);
 });

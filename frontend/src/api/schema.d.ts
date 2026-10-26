@@ -184,15 +184,17 @@ export interface components {
             /** @description ISO 8601, UTC; the slot is half-open: [start, end). */
             end: string;
             price: components["schemas"]["MoneyResource"];
+            /** @description Pending bookings only: pay before this instant (ISO 8601, UTC) or the booking expires and frees its slot. */
+            hold_until?: string;
             quote?: components["schemas"]["QuoteResource"] | null;
             cancellation?: components["schemas"]["CancellationResource"] | null;
         };
         /**
          * BookingStatus
-         * @description Lifecycle: Pending -> Confirmed (after payment) -> Cancelled. A pending booking can also be cancelled, e.g. when payment fails.
+         * @description Lifecycle: Pending -> Confirmed (after payment) -> Cancelled. A pending booking can also be cancelled, or expire when it is not paid in time.
          * @enum {string}
          */
-        BookingStatus: "pending" | "confirmed" | "cancelled";
+        BookingStatus: "pending" | "confirmed" | "cancelled" | "expired";
         /**
          * CancellationPolicyType
          * @description The policies a space owner can choose from. Each one maps to a concrete strategy.

@@ -20,6 +20,7 @@ Bookly-Signature: t=1790000000,v1=5c23dec5…
 | `booking.requested` | `booking_id`, `space_id`, `customer_id`, `start`, `end`, `price_amount`, `currency` |
 | `booking.confirmed` | `booking_id`, `space_id`, `customer_id`, `start`, `end`, `paid_amount`, `currency` |
 | `booking.cancelled` | `booking_id`, `space_id`, `customer_id`, `start`, `end`, `refund_amount`, `currency` |
+| `booking.expired` | `booking_id`, `space_id`, `customer_id`, `start`, `end` (not paid in time; the slot is free again) |
 
 Amounts are in minor units. `start` and `end` are ISO 8601 instants of a half-open slot.
 New event types may be added: receivers should accept and ignore types they don't know.

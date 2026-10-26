@@ -39,6 +39,13 @@ interface BookingRepository
     public function countUpcomingFor(CustomerId $customerId, \DateTimeImmutable $now): int;
 
     /**
+     * Pending bookings whose payment hold ended before the cutoff, oldest hold first.
+     *
+     * @return list<Booking>
+     */
+    public function pendingWithHoldEndedBefore(\DateTimeImmutable $cutoff, int $limit): array;
+
+    /**
      * The customer's bookings, latest slot first.
      *
      * @return list<Booking>

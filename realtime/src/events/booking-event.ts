@@ -16,21 +16,27 @@ interface BookingData {
   /** ISO 8601, half-open [start, end). */
   readonly start: string;
   readonly end: string;
+}
+
+interface Amount {
   readonly currency: string;
 }
 
-export type BookingRequested = Envelope<'booking.requested', BookingData & { readonly price_amount: number }>;
-export type BookingConfirmed = Envelope<'booking.confirmed', BookingData & { readonly paid_amount: number }>;
-export type BookingCancelled = Envelope<'booking.cancelled', BookingData & { readonly refund_amount: number }>;
-export type BookingEvent = BookingRequested | BookingConfirmed | BookingCancelled;
+export type BookingRequested = Envelope<'booking.requested', BookingData & Amount & { readonly price_amount: number }>;
+export type BookingConfirmed = Envelope<'booking.confirmed', BookingData & Amount & { readonly paid_amount: number }>;
+export type BookingCancelled = Envelope<'booking.cancelled', BookingData & Amount & { readonly refund_amount: number }>;
+/** Not paid in time: the slot is free again. Carries no amount. */
+export type BookingExpired = Envelope<'booking.expired', BookingData>;
+export type BookingEvent = BookingRequested | BookingConfirmed | BookingCancelled | BookingExpired;
 
 export class MalformedEvent extends Error {}
 
-/** The amount each event carries, in minor units. */
-const AMOUNT_FIELD: Record<BookingEvent['type'], string> = {
+/** The amount each event carries, in minor units, if any. */
+const AMOUNT_FIELD: Record<BookingEvent['type'], string | null> = {
   'booking.requested': 'price_amount',
   'booking.confirmed': 'paid_amount',
   'booking.cancelled': 'refund_amount',
+  'booking.expired': null,
 };
 
 const isKnownType = (type: string): type is BookingEvent['type'] => Object.hasOwn(AMOUNT_FIELD, type);
@@ -51,9 +57,15 @@ export function parseBookingEvent(body: unknown): BookingEvent | null {
   requireTimestamp(occurredAt, 'occurred_at');
   if (!isRecord(data)) throw new MalformedEvent('"data" must be an object.');
 
-  for (const key of ['booking_id', 'space_id', 'currency']) requireString(data[key], `data.${key}`);
+  for (const key of ['booking_id', 'space_id']) requireString(data[key], `data.${key}`);
   for (const key of ['start', 'end']) requireTimestamp(data[key], `data.${key}`);
-  for (const key of ['customer_id', AMOUNT_FIELD[type]]) requireInteger(data[key], `data.${key}`);
+  requireInteger(data['customer_id'], 'data.customer_id');
+
+  const amountField = AMOUNT_FIELD[type];
+  if (amountField !== null) {
+    requireString(data['currency'], 'data.currency');
+    requireInteger(data[amountField], `data.${amountField}`);
+  }
 
   // Every field the union declares was checked above.
   return { id, type, occurredAt, data } as unknown as BookingEvent;

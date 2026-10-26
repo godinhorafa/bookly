@@ -54,6 +54,7 @@ final readonly class EloquentBookingRepository implements BookingRepository
                     'total_amount' => $booking->price->amount,
                     'currency' => $booking->price->currency->value,
                     'period' => TstzRange::fromTimeSlot($booking->slot),
+                    'hold_until' => Timestamptz::toDatabase($booking->holdUntil),
                     'cancelled_at' => Timestamptz::toDatabase($booking->cancellation()?->cancelledAt),
                     'refund_amount' => $booking->cancellation()?->refund->amount,
                 ],
@@ -71,7 +72,7 @@ final readonly class EloquentBookingRepository implements BookingRepository
     {
         $models = BookingModel::query()
             ->where('space_id', $spaceId->value)
-            ->where('status', '<>', BookingStatus::Cancelled->value)
+            ->whereIn('status', $this->slotHoldingStatuses())
             ->whereRaw('period && ?::tstzrange', [TstzRange::fromTimeSlot($slot)])
             ->orderByRaw('lower(period)')
             ->get();
@@ -83,9 +84,21 @@ final readonly class EloquentBookingRepository implements BookingRepository
     {
         return BookingModel::query()
             ->where('user_id', $customerId->value)
-            ->where('status', '<>', BookingStatus::Cancelled->value)
+            ->whereIn('status', $this->slotHoldingStatuses())
             ->whereRaw('upper(period) > ?::timestamptz', [Timestamptz::toDatabase($now)])
             ->count();
+    }
+
+    public function pendingWithHoldEndedBefore(\DateTimeImmutable $cutoff, int $limit): array
+    {
+        $models = BookingModel::query()
+            ->where('status', BookingStatus::Pending->value)
+            ->where('hold_until', '<', Timestamptz::toDatabase($cutoff))
+            ->orderBy('hold_until')
+            ->limit($limit)
+            ->get();
+
+        return array_values($models->map($this->toDomain(...))->all());
     }
 
     public function forCustomer(CustomerId $customerId): array
@@ -96,6 +109,17 @@ final readonly class EloquentBookingRepository implements BookingRepository
             ->get();
 
         return array_values($models->map($this->toDomain(...))->all());
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function slotHoldingStatuses(): array
+    {
+        return array_values(array_map(
+            static fn (BookingStatus $s): string => $s->value,
+            array_filter(BookingStatus::cases(), static fn (BookingStatus $s): bool => $s->holdsSlot()),
+        ));
     }
 
     private function isOverlapViolation(QueryException $e): bool
@@ -115,6 +139,7 @@ final readonly class EloquentBookingRepository implements BookingRepository
             new CustomerId($model->user_id),
             TstzRange::toTimeSlot($model->period),
             Money::of($model->total_amount, $currency),
+            Timestamptz::fromDatabase($model->hold_until) ?? throw new \UnexpectedValueException("Booking {$model->id} has no hold_until."),
             BookingStatus::from($model->status),
             $cancelledAt instanceof \DateTimeImmutable && $model->refund_amount !== null
                 ? new BookingCancellation($cancelledAt, Money::of($model->refund_amount, $currency))

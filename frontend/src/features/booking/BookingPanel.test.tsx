@@ -38,6 +38,7 @@ describe('BookingPanel', () => {
         data: {
           id: 'b-1', status: 'pending', space_id: space.id, start: '', end: '',
           price: { amount: 6000, currency: 'BRL' },
+          hold_until: '2026-11-01T10:15:00Z',
           quote: { base: { amount: 6000, currency: 'BRL' }, adjustments: [], total: { amount: 6000, currency: 'BRL' } },
         },
       }, 201);
@@ -49,6 +50,8 @@ describe('BookingPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Book' }));
 
     expect(await screen.findByRole('table', { name: 'Price breakdown' })).toHaveTextContent('R$ 60,00');
+    // The deadline is shown in the space's time zone (São Paulo, UTC-3).
+    expect(screen.getByText('Pay by 07:15, or the slot is released for others.')).toBeInTheDocument();
     const post = fetch.mock.calls.map(([r]) => r).find((r) => r.method === 'POST') as Request;
     expect(post.headers.get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
     expect(await post.json()).toMatchObject({ space_id: space.id, coupon: null });

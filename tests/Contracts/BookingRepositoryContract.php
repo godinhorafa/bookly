@@ -172,4 +172,46 @@ function bookingRepositoryContract(Closure $setUp): void
             ->toBe([$late->id->value, $early->id->value])
             ->and($fx->repository->forCustomer(new CustomerId(999_999)))->toBe([]);
     });
+
+    it('stores the payment deadline', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $booking = Builders::booking($fx->space, $fx->customer, holdUntil: '2026-11-01T09:15:30.250000-03:00');
+        $fx->repository->save($booking);
+
+        expect($fx->repository->get($booking->id)->holdUntil->format('Y-m-d\TH:i:s.uP'))->toBe('2026-11-01T12:15:30.250000+00:00');
+    });
+
+    it('finds unpaid bookings whose hold ended before a cutoff, oldest first', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $late = Builders::booking($fx->space, $fx->customer, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z', holdUntil: '2026-11-01T12:10:00Z');
+        $early = Builders::booking($fx->space, $fx->customer, '2026-11-02T12:00:00Z', '2026-11-02T13:00:00Z', holdUntil: '2026-11-01T12:05:00Z');
+        $notYet = Builders::booking($fx->space, $fx->customer, '2026-11-02T14:00:00Z', '2026-11-02T15:00:00Z', holdUntil: '2026-11-01T12:20:00Z');
+        $paid = Builders::booking($fx->space, $fx->customer, '2026-11-02T16:00:00Z', '2026-11-02T17:00:00Z', holdUntil: '2026-11-01T12:00:00Z');
+        $paid->confirm();
+        foreach ([$late, $early, $notYet, $paid] as $booking) {
+            $fx->repository->save($booking);
+        }
+        $ids = static fn (array $bookings): array => array_map(static fn (Booking $b): string => $b->id->value, $bookings);
+        $cutoff = new DateTimeImmutable('2026-11-01T12:15:00Z');
+
+        expect($ids($fx->repository->pendingWithHoldEndedBefore($cutoff, 10)))->toBe([$early->id->value, $late->id->value])
+            ->and($ids($fx->repository->pendingWithHoldEndedBefore($cutoff, 1)))->toBe([$early->id->value])
+            ->and($fx->repository->pendingWithHoldEndedBefore(new DateTimeImmutable('2026-11-01T12:05:00Z'), 10))->toBe([]);
+    });
+
+    it('gives the slot of an expired booking to the next customer', function (): void {
+        /** @var BookingRepositoryFixture $fx */
+        $fx = $this->fx;
+        $expired = Builders::booking($fx->space, $fx->customer);
+        $fx->repository->save($expired);
+        $expired->expire(new DateTimeImmutable('2026-11-01T13:00:00Z'));
+        $fx->repository->save($expired);
+
+        $fx->repository->save(Builders::booking($fx->space, $fx->customer));
+
+        expect($fx->repository->findOverlapping($fx->space, $expired->slot))->toHaveCount(1)
+            ->and($fx->repository->get($expired->id)->status())->toBe(BookingStatus::Expired);
+    });
 }

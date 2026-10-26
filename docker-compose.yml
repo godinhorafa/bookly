@@ -13,18 +13,28 @@ services:
   app:
     build: docker/php
     # First run: creates .env and an app key, so `docker compose up` is all a fresh clone needs.
+    # --no-reload: otherwise `serve` hides this container's environment (DB_HOST=postgres...)
+    # from the web server whenever PHP fills $_ENV, as the official images do (no php.ini).
     command: >-
       sh -c "([ -f .env ] || cp .env.example .env)
       && composer install
       && (grep -q '^APP_KEY=.' .env || php artisan key:generate --force)
       && php artisan migrate --force
       && php artisan db:seed --force
-      && php artisan serve --host=0.0.0.0 --port=8000"
+      && php artisan serve --host=0.0.0.0 --port=8000 --no-reload"
     ports:
       - "8000:8000"
     volumes:
       - .:/app
     environment: *laravel-env
+    # Healthy once installed, migrated, seeded and serving: the workers below wait for it.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8000/up"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5m
+      start_interval: 2s
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,12 +43,27 @@ services:
   relay:
     build: docker/php
     command: php artisan outbox:relay --watch
-    restart: unless-stopped # until the app container has installed and migrated
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    environment: *laravel-env
+    # Waiting beats crash-looping: Docker spaces restarts further apart each time,
+    # so a worker started before the migrations could stay down for a minute.
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # Runs scheduled work: expiring unpaid bookings, pruning idempotency keys.
+  scheduler:
+    build: docker/php
+    command: php artisan schedule:work
+    restart: unless-stopped
     volumes:
       - .:/app
     environment: *laravel-env
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   realtime:
     image: node:22-alpine

@@ -44,6 +44,7 @@ function book(string $spaceId, int $userId, string $start, string $end, string $
         'total_amount' => 5_000,
         'currency' => 'BRL',
         'period' => TstzRange::fromTimeSlot(TimeSlot::fromStrings($start, $end)),
+        'hold_until' => '2026-11-01 12:15:00+00',
         'cancelled_at' => $status === 'cancelled' ? '2026-10-01 00:00:00+00' : null,
         'refund_amount' => $status === 'cancelled' ? 0 : null,
     ]));
@@ -101,6 +102,19 @@ it('frees the slot once a booking is cancelled', function (): void {
     expect(DB::table('bookings')->count())->toBe(2);
 });
 
+it('frees the slot once an unpaid booking expires', function (): void {
+    book($this->spaceId, $this->userId, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z', status: 'expired');
+    book($this->spaceId, $this->userId, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z');
+
+    expect(DB::table('bookings')->count())->toBe(2);
+});
+
+it('keeps the slot of a booking still waiting for payment', function (): void {
+    book($this->spaceId, $this->userId, '2026-11-02T10:00:00Z', '2026-11-02T11:00:00Z', status: 'pending');
+
+    expectExclusionViolation(fn () => book($this->spaceId, $this->userId, '2026-11-02T10:30:00Z', '2026-11-02T11:30:00Z'));
+});
+
 it('round-trips the period through the TimeSlot value object', function (): void {
     book($this->spaceId, $this->userId, '2026-11-02T10:00:00-03:00', '2026-11-02T11:30:00-03:00');
 
@@ -118,5 +132,6 @@ it('rejects inclusive upper bounds at the schema level', function (): void {
         'total_amount' => 5_000,
         'currency' => 'BRL',
         'period' => '[2026-11-02 10:00:00+00,2026-11-02 11:00:00+00]',
+        'hold_until' => '2026-11-01 12:15:00+00',
     ])))->toThrow(QueryException::class, 'bookings_period_half_open');
 });

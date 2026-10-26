@@ -36,12 +36,19 @@ describe('fanOut', () => {
     expect(own).toMatchObject({ room: 'customer:7', payload: { status: 'cancelled' } });
   });
 
+  it('frees the slot for everyone when an unpaid booking expires', () => {
+    const [slot, own] = fanOut(event('booking.expired'));
+
+    expect(slot).toMatchObject({ room: 'customers', name: 'slot.changed', payload: { busy: false } });
+    expect(own).toMatchObject({ room: 'customer:7', payload: { type: 'booking.expired', status: 'expired' } });
+  });
+
   it('only tells the customer about a confirmation: the slot was already taken', () => {
     expect(fanOut(event('booking.confirmed'))).toMatchObject([{ room: 'customer:7', payload: { status: 'confirmed' } }]);
   });
 
   it('never shares who booked, the booking id or the amount with other customers', () => {
-    for (const type of ['booking.requested', 'booking.confirmed', 'booking.cancelled']) {
+    for (const type of ['booking.requested', 'booking.confirmed', 'booking.cancelled', 'booking.expired']) {
       for (const message of fanOut(event(type)).filter((m) => m.room === 'customers')) {
         expect(Object.keys(message.payload).sort()).toEqual(['busy', 'end', 'space_id', 'start']);
       }

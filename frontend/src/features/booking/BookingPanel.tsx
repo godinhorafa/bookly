@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { ProblemMessage } from '../../components/ProblemMessage';
 import { formatMoney } from '../../lib/money';
-import { localDate, localToIso, timesBetween } from '../../lib/time';
+import { formatTime, localDate, localToIso, timesBetween } from '../../lib/time';
 import { useCreateBooking, type Booking } from '../bookings/queries';
 import { useAvailability, type Space } from '../spaces/queries';
 import { DaySchedule } from './DaySchedule';
@@ -83,6 +83,9 @@ export function BookingPanel({ space }: { space: Space }) {
       {booking && !confirmed && (
         <div className="result" aria-label="Booking on hold">
           <h3>On hold until paid · {formatMoney(booking.price)}</h3>
+          {booking.hold_until && (
+            <p className="hint">Pay by {formatTime(booking.hold_until, space.timezone)}, or the slot is released for others.</p>
+          )}
           {booking.quote && <QuoteSummary quote={booking.quote} />}
           <PaymentForm booking={booking} onPaid={setConfirmed} />
         </div>

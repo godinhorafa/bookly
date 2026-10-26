@@ -17,7 +17,7 @@ export interface SlotChanged {
 export interface BookingChanged {
   event_id: string;
   booking_id: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'expired';
 }
 
 export interface LiveSocket {

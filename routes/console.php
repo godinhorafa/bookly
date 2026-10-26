@@ -14,6 +14,8 @@ Artisan::command('inspire', function (): void {
 
 Schedule::command('outbox:relay --until-empty')->everyMinute()->withoutOverlapping();
 
+Schedule::command('bookings:expire')->everyMinute()->withoutOverlapping();
+
 Schedule::call(fn () => DB::table('idempotency_keys')->where('created_at', '<', now()->subHours(Idempotency::RETENTION_HOURS))->delete())
     ->name('prune-idempotency-keys')
     ->hourly();

@@ -9,6 +9,7 @@ use Application\Event\Outbox;
 use Application\Event\OutboxRelay;
 use Application\Transaction;
 use Domain\Booking\BookingRepository;
+use Domain\Booking\PaymentHold;
 use Domain\Booking\Specification\AlignedToGrid;
 use Domain\Booking\Specification\BelowActiveBookingLimit;
 use Domain\Booking\Specification\BookingRules;
@@ -33,6 +34,7 @@ use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
 use Infrastructure\Clock\SystemClock;
 use Infrastructure\Event\PostgresOutbox;
+use Infrastructure\Laravel\Console\ExpireUnpaidBookingsCommand;
 use Infrastructure\Laravel\Console\RelayOutboxCommand;
 use Infrastructure\Notification\AuditTrailSubscriber;
 use Infrastructure\Notification\BookingConfirmationEmailSubscriber;
@@ -70,6 +72,7 @@ final class InfrastructureServiceProvider extends ServiceProvider
     {
         $this->app->singleton(PricingPipeline::class, fn (): PricingPipeline => $this->pricingPipeline($this->app->make(Config::class)));
         $this->app->singleton(BookingRules::class, fn (): BookingRules => $this->bookingRules($this->app->make(Config::class)));
+        $this->app->singleton(PaymentHold::class, fn (): PaymentHold => new PaymentHold($this->app->make(Config::class)->integer('booking.payment_hold_minutes')));
         // The fake keeps its ledger in the default cache store, so charges survive across requests.
         $this->app->singleton(FakePaymentGateway::class, fn (): FakePaymentGateway => new FakePaymentGateway(
             $this->app->make(CacheFactory::class)->store(),
@@ -85,7 +88,7 @@ final class InfrastructureServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([RelayOutboxCommand::class]);
+            $this->commands([RelayOutboxCommand::class, ExpireUnpaidBookingsCommand::class]);
         }
     }
 

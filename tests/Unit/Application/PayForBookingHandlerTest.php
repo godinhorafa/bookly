@@ -32,7 +32,7 @@ beforeEach(function (): void {
     $this->gateway = new FakePaymentGateway;
     $this->transaction = new InlineTransaction;
     $this->outbox = new InMemoryOutbox;
-    $this->handler = new PayForBookingHandler($this->bookings, $this->payments, new PaymentGateways($this->gateway), $this->outbox, $this->transaction, new FrozenClock);
+    $this->handler = new PayForBookingHandler($this->bookings, $this->payments, new PaymentGateways($this->gateway), $this->outbox, $this->transaction, $this->clock = new FrozenClock);
 
     $this->booking = Builders::booking(SpaceId::generate(), new CustomerId(42)); // BRL 50.00, pending
     $this->bookings->save($this->booking);
@@ -95,7 +95,7 @@ it('saves nothing when the gateway is down', function (): void {
 });
 
 it('confirms a fully discounted booking without charging anything', function (): void {
-    $free = Booking::request(BookingId::generate(), SpaceId::generate(), new CustomerId(42), TimeSlot::fromStrings('2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z'), Money::zero(Currency::BRL));
+    $free = Booking::request(BookingId::generate(), SpaceId::generate(), new CustomerId(42), TimeSlot::fromStrings('2026-11-05T10:00:00Z', '2026-11-05T11:00:00Z'), Money::zero(Currency::BRL), new DateTimeImmutable('2026-11-01T12:15:00Z'));
     $this->bookings->save($free);
 
     $outcome = $this->handler->handle(new PayForBooking($free->id->value, 42, 'pm_card_visa'));
@@ -112,6 +112,19 @@ it('numbers attempts from 1, so each retry gets its own idempotency key', functi
     pay('pm_card_visa');
 
     expect(array_map(static fn ($payment): int => $payment->attempt, $this->payments->forBooking($this->booking->id)))->toBe([1, 2]);
+});
+
+it('refuses payment once the hold has ended, without charging', function (): void {
+    $this->clock->travelTo('2026-11-01T12:15:00Z');
+
+    expect(fn (): PaymentOutcome => pay())->toThrow(BookingNotPayable::class, 'had to be paid by 2026-11-01T12:15:00+00:00');
+    expect($this->payments->forBooking($this->booking->id))->toBe([]);
+});
+
+it('accepts payment until the last second of the hold', function (): void {
+    $this->clock->travelTo('2026-11-01T12:14:59Z');
+
+    expect(pay()->confirmed)->toBeTrue();
 });
 
 it('refuses to pay twice', function (): void {

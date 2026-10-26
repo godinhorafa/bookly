@@ -36,6 +36,8 @@ final class Builders
         CustomerId $customerId,
         string $start = '2026-11-02T10:00:00Z',
         string $end = '2026-11-02T11:00:00Z',
+        // 15 minutes after FrozenClock's default "now".
+        string $holdUntil = '2026-11-01T12:15:00Z',
     ): Booking {
         return Booking::request(
             BookingId::generate(),
@@ -43,6 +45,7 @@ final class Builders
             $customerId,
             TimeSlot::fromStrings($start, $end),
             Money::of(5_000, Currency::BRL),
+            new \DateTimeImmutable($holdUntil),
         );
     }
 
