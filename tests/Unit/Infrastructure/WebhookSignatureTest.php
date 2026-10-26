@@ -21,3 +21,10 @@ it('rejects tampered bodies, wrong secrets, stale timestamps and garbage', funct
     'replayed after 10 min' => ['{"id":"1"}', 'whsec_test', 1_790_000_600],
     'malformed header' => ['{"id":"1"}', 'whsec_test', 1_790_000_000, 'v1=abc'],
 ]);
+
+it('matches the shared example that the realtime service verifies', function (): void {
+    /** @var array{secret: string, timestamp: int, body: string, header: string} $example */
+    $example = json_decode((string) file_get_contents(__DIR__ . '/../../../docs/api/webhook-signature.example.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect(WebhookSignature::sign($example['body'], $example['secret'], $example['timestamp']))->toBe($example['header']);
+});

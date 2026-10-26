@@ -125,6 +125,33 @@ jobs:
       - name: Build
         run: npm run build
 
+  realtime:
+    name: Realtime service (NestJS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: realtime
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: realtime/package-lock.json
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit & end-to-end tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
   e2e:
     name: End-to-end (Playwright, real API + PostgreSQL)
     runs-on: ubuntu-latest
@@ -164,10 +191,16 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            realtime/package-lock.json
 
       - name: Install dashboard dependencies
         working-directory: frontend
+        run: npm ci
+
+      - name: Install realtime service dependencies
+        working-directory: realtime
         run: npm ci
 
       - name: Resolve Playwright version

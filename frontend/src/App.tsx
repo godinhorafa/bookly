@@ -5,6 +5,8 @@ import { tokenStore } from './auth/tokenStore';
 import { ProblemMessage } from './components/ProblemMessage';
 import { BookingPanel } from './features/booking/BookingPanel';
 import { MyBookings } from './features/bookings/MyBookings';
+import { LiveActivity } from './features/live/LiveActivity';
+import { useLiveUpdates } from './features/live/useLiveUpdates';
 import { SpacePicker } from './features/spaces/SpacePicker';
 import { useSpaces, type Space } from './features/spaces/queries';
 
@@ -25,6 +27,7 @@ export function App() {
 
   return (
     <Dashboard
+      token={token}
       onLogout={() => {
         tokenStore.clear();
         queryClient.clear();
@@ -34,8 +37,9 @@ export function App() {
   );
 }
 
-function Dashboard({ onLogout }: { onLogout: () => void }) {
+function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
   const spaces = useSpaces();
+  const live = useLiveUpdates(token);
   const [selected, setSelected] = useState<Space | undefined>();
   const space = selected ?? spaces.data?.[0];
 
@@ -53,6 +57,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <SpacePicker spaces={spaces.data} selectedId={space?.id} onSelect={setSelected} />
           {space && <BookingPanel key={space.id} space={space} />}
           <MyBookings spaces={spaces.data} />
+          <LiveActivity status={live.status} activity={live.activity} spaces={spaces.data} />
         </>
       )}
     </main>

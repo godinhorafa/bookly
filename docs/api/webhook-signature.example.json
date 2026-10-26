@@ -1,0 +1,7 @@
+{
+    "description": "A webhook signed by Bookly. Both the PHP signer and the realtime service verifier are tested against it.",
+    "secret": "whsec_example",
+    "timestamp": 1790000000,
+    "body": "{\"id\":\"0199a7d2-5b1e-7c3a-9f00-3c1e2d4b5a61\",\"type\":\"booking.requested\",\"occurred_at\":\"2026-10-26T12:00:00+00:00\",\"data\":{\"booking_id\":\"0199a7d2-5b1e-7c3a-9f00-3c1e2d4b5a62\",\"space_id\":\"0199a7d2-5b1e-7c3a-9f00-3c1e2d4b5a63\",\"customer_id\":1,\"start\":\"2026-10-28T18:00:00+00:00\",\"end\":\"2026-10-28T19:00:00+00:00\",\"price_amount\":9000,\"currency\":\"BRL\"}}",
+    "header": "t=1790000000,v1=5c23dec53d82e6272837446c95f6d9b610d6ada6d48078cc99187f99c5bca650"
+}

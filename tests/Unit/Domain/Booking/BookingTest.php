@@ -118,7 +118,12 @@ it('records what happened to it as domain events', function (): void {
     $events = $booking->releaseEvents();
 
     expect(array_map(static fn (DomainEvent $e): string => $e::name(), $events))->toBe(['booking.requested', 'booking.confirmed', 'booking.cancelled'])
-        ->and($events[2]->payload())->toMatchArray(['booking_id' => $booking->id->value, 'refund_amount' => 5_000])
+        ->and($events[2]->payload())->toMatchArray([
+            'booking_id' => $booking->id->value,
+            'start' => $booking->slot->start->format(DATE_ATOM),
+            'end' => $booking->slot->end->format(DATE_ATOM),
+            'refund_amount' => 5_000,
+        ])
         ->and($booking->releaseEvents())->toBe([]);
 });
 
