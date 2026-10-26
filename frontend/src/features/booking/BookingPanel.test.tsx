@@ -36,7 +36,7 @@ describe('BookingPanel', () => {
 
       return json({
         data: {
-          id: 'b-1', status: 'pending', space_id: space.id, start: '', end: '',
+          id: 'b-1', status: 'pending', space_id: space.id, start: '2026-11-02T11:30:00Z', end: '2026-11-02T12:30:00Z',
           price: { amount: 6000, currency: 'BRL' },
           hold_until: '2026-11-01T10:15:00Z',
           quote: { base: { amount: 6000, currency: 'BRL' }, adjustments: [], total: { amount: 6000, currency: 'BRL' } },

@@ -46,7 +46,10 @@ test('books a free slot and explains the price', async () => {
   await expect(page.getByRole('button', { name: '15:00 busy' })).toBeDisabled();
 
   if (process.env.UPDATE_SCREENSHOT) {
-    await page.screenshot({ path: '../docs/screenshots/dashboard.png', fullPage: true });
+    // A tall viewport rather than fullPage: the sticky header and sidebar would be drawn mid-page.
+    await page.setViewportSize({ width: 1440, height: 1500 });
+    await page.screenshot({ path: '../docs/screenshots/dashboard.png' });
+    await page.setViewportSize({ width: 1280, height: 720 });
   }
 });
 
@@ -82,6 +85,10 @@ test('shows every broken rule when a request is invalid', async () => {
 test('cancels with a full refund under the flexible policy', async () => {
   const row = page.getByLabel('My bookings').locator('tr[data-status="confirmed"]');
   await row.getByRole('button', { name: 'Cancel' }).click();
+  // Cancelling asks for confirmation, with the space's refund policy.
+  const dialog = page.getByRole('alertdialog', { name: 'Cancel this booking?' });
+  await expect(dialog).toContainText('Flexible policy: full refund up to 24h before');
+  await dialog.getByRole('button', { name: 'Cancel booking' }).click();
 
   const cancelled = page.getByLabel('My bookings').locator('tr[data-status="cancelled"]');
   await expect(cancelled).toContainText('refunded R$ 90,00');

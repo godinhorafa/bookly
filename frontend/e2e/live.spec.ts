@@ -46,15 +46,19 @@ test('shows a slot booked by someone else as busy, without reloading', async () 
   await expect(booker.getByLabel('Booking on hold')).toBeVisible();
 
   await expect(watcher.getByRole('button', { name: '17:00 busy' })).toBeDisabled();
-  await expect(watcher.getByLabel('Live activity')).toContainText('Tennis court');
-  await expect(watcher.getByLabel('Live activity')).toContainText('17:00–18:00: just booked');
+  const feed = watcher.getByLabel('Live activity').getByRole('listitem').first();
+  await expect(feed).toContainText('Tennis court was just booked');
+  await expect(feed).toContainText('17:00–18:00');
 });
 
 test('frees the slot for everyone when the booking is cancelled', async () => {
   const row = booker.getByLabel('My bookings').locator('tr[data-status="pending"]');
   await row.getByRole('button', { name: 'Cancel' }).click();
+  await booker.getByRole('alertdialog').getByRole('button', { name: 'Cancel booking' }).click();
   await expect(booker.getByLabel('My bookings').locator('tr[data-status="cancelled"]')).toHaveCount(1);
 
   await expect(watcher.getByRole('button', { name: '17:00 free' })).toBeEnabled();
-  await expect(watcher.getByLabel('Live activity')).toContainText('17:00–18:00: just freed');
+  const feed = watcher.getByLabel('Live activity').getByRole('listitem').first();
+  await expect(feed).toContainText('Tennis court is free again');
+  await expect(feed).toContainText('17:00–18:00');
 });

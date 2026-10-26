@@ -1,6 +1,11 @@
+import { CreditCard, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
-import { ProblemError } from '../../api/problem';
-import { ProblemMessage } from '../../components/ProblemMessage';
+import { ProblemError } from '@/api/problem';
+import { ProblemMessage } from '@/components/ProblemMessage';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { usePayBooking, type Booking } from '../bookings/queries';
 
 // Stripe test-mode payment methods; the fake gateway accepts the same ones.
@@ -18,31 +23,39 @@ export function PaymentForm({ booking, onPaid }: { booking: Booking; onPaid: (bo
   return (
     <form
       aria-label="Payment"
+      className="flex flex-col gap-4 rounded-lg bg-card p-4"
       onSubmit={(event) => {
         event.preventDefault();
         pay.mutate({ id: booking.id, paymentMethod: method }, { onSuccess: onPaid });
       }}
     >
-      <label>
-        Test card
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+      <div className="space-y-1">
+        <h4 className="font-semibold">Payment</h4>
+        <p className="text-sm text-muted-foreground">Test mode: pick a card to see what happens.</p>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="payment-card">Test card</Label>
+        <NativeSelect id="payment-card" value={method} onChange={(e) => setMethod(e.target.value)}>
           {TEST_CARDS.map((card) => (
             <option key={card.id} value={card.id}>
               {card.label}
             </option>
           ))}
-        </select>
-      </label>
+        </NativeSelect>
+      </div>
       {declined ? (
-        <p role="alert" className="problem">
-          Payment declined ({declined.declineReason}). Your booking is still on hold; try another card.
-        </p>
+        <Alert variant="destructive">
+          <CreditCard />
+          <AlertTitle>Payment declined</AlertTitle>
+          <AlertDescription>Reason: {declined.declineReason}. Your booking is still on hold; try another card.</AlertDescription>
+        </Alert>
       ) : (
-        <ProblemMessage error={pay.error} />
+        <ProblemMessage error={pay.error} title="Payment failed" />
       )}
-      <button type="submit" disabled={pay.isPending}>
+      <Button type="submit" size="lg" className="mt-auto w-full" disabled={pay.isPending}>
+        {pay.isPending ? <LoaderCircle className="animate-spin" aria-hidden /> : <CreditCard aria-hidden />}
         Pay and confirm
-      </button>
+      </Button>
     </form>
   );
 }

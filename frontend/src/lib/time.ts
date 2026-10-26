@@ -55,3 +55,19 @@ export function timesBetween(start: string, end: string, step: number): string[]
   }
   return times;
 }
+
+/** "Mon" and "26" for a local date, for compact day pickers. */
+export function dayParts(day: string): { weekday: string; date: string; month: string } {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number];
+  const noon = new Date(Date.UTC(y, m - 1, d, 12));
+  const part = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { ...options, timeZone: 'UTC' }).format(noon);
+
+  return { weekday: part({ weekday: 'short' }), date: part({ day: 'numeric' }), month: part({ month: 'short' }) };
+}
+
+/** "14:59" for a number of seconds, never negative. */
+export function formatCountdown(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}

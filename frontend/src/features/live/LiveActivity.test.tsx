@@ -64,7 +64,8 @@ describe('live updates', () => {
     socket.emit('slot.changed', { space_id: 'space-1', start: '2026-10-28T18:00:00Z', end: '2026-10-28T19:00:00Z', busy: true });
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['availability', 'space-1'] });
-    expect(screen.getByRole('listitem')).toHaveTextContent('Tennis court, Wed 28 Oct, 15:00–16:00: just booked');
+    expect(screen.getByRole('listitem')).toHaveTextContent('Tennis court was just booked');
+    expect(screen.getByRole('listitem')).toHaveTextContent('Wed 28 Oct, 15:00–16:00');
   });
 
   it('refetches my bookings when one of them changes', () => {
@@ -92,7 +93,8 @@ describe('live updates', () => {
     }
 
     expect(screen.getAllByRole('listitem')).toHaveLength(5);
-    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('13:00–13:30: just freed');
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('is free again');
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('13:00–13:30');
   });
 
   it('disconnects when the dashboard goes away (log out)', () => {
