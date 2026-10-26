@@ -18,7 +18,7 @@ use Domain\Shared\WeeklyWindow;
  */
 final readonly class PeakHourSurcharge implements PricingRule
 {
-    /** @var list<WeeklyWindow> */
+    /** @var array<WeeklyWindow> */
     private array $windows;
 
     /**
@@ -30,7 +30,7 @@ final readonly class PeakHourSurcharge implements PricingRule
             throw InvalidPricingRule::percentOutOfRange($percent);
         }
 
-        $this->windows = array_values($windows);
+        $this->windows = $windows;
     }
 
     public function apply(Quote $quote, PricingContext $context): Quote

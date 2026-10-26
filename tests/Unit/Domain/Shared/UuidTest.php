@@ -21,9 +21,21 @@ it('normalises case when parsing', function (): void {
         ->and((string) $id)->toBe($id->value);
 });
 
-it('rejects malformed identifiers with a typed message', function (): void {
-    SpaceId::fromString('not-a-uuid');
-})->throws(InvalidIdentifier::class, 'SpaceId must be a UUID');
+it('rejects malformed identifiers with a message naming the type', function (): void {
+    expect(fn (): SpaceId => SpaceId::fromString('not-a-uuid'))->toThrow(function (InvalidIdentifier $e): void {
+        expect($e->getMessage())->toBe('SpaceId must be a UUID, got "not-a-uuid".');
+    });
+});
+
+it('keeps every random bit random', function (): void {
+    // Each hex digit outside the version and variant bits must take every value.
+    $ids = array_map(static fn (): string => str_replace('-', '', BookingId::generate()->value), range(1, 2_000));
+
+    foreach ([13, 17] as $digit) { // after the "4" version digit and the variant digit
+        expect(array_unique(array_map(static fn (string $id): string => $id[$digit], $ids)))->toHaveCount(16);
+    }
+    expect(array_values(array_unique(array_map(static fn (string $id): string => $id[16], $ids))))->toEqualCanonicalizing(['8', '9', 'a', 'b']);
+});
 
 it('never treats ids of different aggregates as equal', function (): void {
     $value = '0b9e7e4c-2f4b-4c1a-9d3e-7a1b2c3d4e5f';

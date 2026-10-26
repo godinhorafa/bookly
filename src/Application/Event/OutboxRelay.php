@@ -15,11 +15,13 @@ use Domain\Shared\Clock;
  */
 final readonly class OutboxRelay
 {
-    public const int MAX_ATTEMPTS = 8;
+    // Constant lines never show as covered, so their mutants would only count as uncovered.
+    // OutboxRelayTest pins both values: "gives up after eight attempts", "leases ... two minutes".
+    public const int MAX_ATTEMPTS = 8; // @pest-mutate-ignore
 
-    private const int LEASE_SECONDS = 120;
+    private const int LEASE_SECONDS = 120; // @pest-mutate-ignore
 
-    /** @var list<EventSubscriber> */
+    /** @var array<EventSubscriber> */
     private array $subscribers;
 
     public function __construct(
@@ -27,7 +29,7 @@ final readonly class OutboxRelay
         private Clock $clock,
         EventSubscriber ...$subscribers,
     ) {
-        $this->subscribers = array_values($subscribers);
+        $this->subscribers = $subscribers;
     }
 
     public function relay(int $batchSize = 50): RelayReport
@@ -45,7 +47,7 @@ final readonly class OutboxRelay
                 $this->outbox->markDead($event->id, implode("\n", $errors), $now);
                 $dead++;
             } else {
-                $this->outbox->scheduleRetry($event->id, implode("\n", $errors), $now->modify('+' . self::backoffSeconds($event->attempts + 1) . ' seconds'));
+                $this->outbox->scheduleRetry($event->id, implode("\n", $errors), $now->add(new \DateInterval('PT' . self::backoffSeconds($event->attempts + 1) . 'S')));
                 $retried++;
             }
         }

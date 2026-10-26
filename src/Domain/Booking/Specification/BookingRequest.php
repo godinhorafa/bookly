@@ -20,6 +20,6 @@ final readonly class BookingRequest
         public TimeSlot $slot,
         public CustomerId $customerId,
         public \DateTimeImmutable $requestedAt,
-        public int $activeBookingsOfCustomer = 0,
+        public int $activeBookingsOfCustomer,
     ) {}
 }

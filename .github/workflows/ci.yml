@@ -61,6 +61,8 @@ jobs:
           php-version: '8.3'
           extensions: pdo_pgsql, intl
           coverage: pcov
+          # PCOV only instruments the first of src/, lib/ or app/ by default.
+          ini-values: pcov.directory=.
 
       - uses: ramsey/composer-install@v4
 
@@ -90,8 +92,27 @@ jobs:
       - name: Concurrency tests (parallel processes)
         run: vendor/bin/pest --testsuite=Concurrency
 
-      - name: Coverage
-        run: vendor/bin/pest --coverage
+      - name: Coverage (at least 95%)
+        run: vendor/bin/pest --coverage --min=95
+
+  mutation:
+    name: Mutation testing (domain & use cases)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, intl
+          coverage: pcov
+
+      - uses: ramsey/composer-install@v4
+
+      # Every mutant of src/Domain and src/Application must be killed by the unit suite.
+      - name: Pest mutation testing (100% required)
+        run: composer test:mutate
 
   frontend:
     name: Frontend (types, unit tests, build)

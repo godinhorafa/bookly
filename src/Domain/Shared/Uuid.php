@@ -28,9 +28,13 @@ abstract readonly class Uuid implements \Stringable
 
     public static function generate(): static
     {
-        $bytes = random_bytes(16);
-        $bytes[6] = chr((ord($bytes[6]) & 0x0F) | 0x40);
-        $bytes[8] = chr((ord($bytes[8]) & 0x3F) | 0x80);
+        // Reading a neighbouring random byte, or one byte too many, is just as random:
+        // equivalent mutants, ignored on these lines only. The bit masks below are tested.
+        $bytes = random_bytes(16); // @pest-mutate-ignore: IncrementInteger
+        $timeHigh = ord($bytes[6]); // @pest-mutate-ignore: IncrementInteger,DecrementInteger
+        $clockSeq = ord($bytes[8]); // @pest-mutate-ignore: IncrementInteger,DecrementInteger
+        $bytes[6] = chr(($timeHigh & 0x0F) | 0x40); // version 4
+        $bytes[8] = chr(($clockSeq & 0x3F) | 0x80); // RFC 4122 variant
 
         return new static(vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4)));
     }

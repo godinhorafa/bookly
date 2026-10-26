@@ -14,6 +14,6 @@ final class PaymentGatewayUnavailable extends DomainException
 {
     public static function because(string $gateway, string $reason, ?\Throwable $previous = null): self
     {
-        return new self("Payment gateway {$gateway} is unavailable: {$reason}", 0, $previous);
+        return new self("Payment gateway {$gateway} is unavailable: {$reason}", previous: $previous);
     }
 }

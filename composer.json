@@ -82,6 +82,8 @@
         ],
         "test:unit": "@php vendor/bin/pest --testsuite=Unit,Arch",
         "test:integration": "@php vendor/bin/pest --testsuite=Integration,Concurrency",
+        "test:mutate": "@php vendor/bin/pest --testsuite=Unit --mutate --everything --path=src/Domain,src/Application --parallel --min=100",
+        "test:coverage": "@php -d pcov.directory=. vendor/bin/pest --coverage --min=95",
         "analyse": "@php vendor/bin/phpstan analyse --memory-limit=1G",
         "lint": [
             "@php vendor/bin/pint --test",

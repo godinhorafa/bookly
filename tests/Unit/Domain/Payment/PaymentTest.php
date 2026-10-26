@@ -45,6 +45,13 @@ it('has nothing to refund on a declined attempt', function (): void {
         ->and(fn (): string => $declined->chargeReference())->toThrow(LogicException::class);
 });
 
+it('never treats the reference of a declined charge as a charge to refund', function (): void {
+    // Stripe returns a PaymentIntent id even when the card is declined.
+    $declined = aPayment(ChargeResult::declined('insufficient_funds', 'pi_declined'));
+
+    expect(fn (): string => $declined->chargeReference())->toThrow(LogicException::class);
+});
+
 it('routes refunds to the gateway that took the charge', function (): void {
     $fake = new FakePaymentGateway;
     $gateways = new PaymentGateways($fake);
@@ -52,4 +59,11 @@ it('routes refunds to the gateway that took the charge', function (): void {
     expect($gateways->default())->toBe($fake)
         ->and($gateways->named('fake'))->toBe($fake)
         ->and(fn (): PaymentGateway => $gateways->named('paypal'))->toThrow(PaymentGatewayUnavailable::class, 'not configured');
+});
+
+it('keeps the other gateways reachable for refunds', function (): void {
+    $stripe = Mockery::mock(PaymentGateway::class);
+    $stripe->allows('name')->andReturn('stripe');
+
+    expect((new PaymentGateways(new FakePaymentGateway, $stripe))->named('stripe'))->toBe($stripe);
 });

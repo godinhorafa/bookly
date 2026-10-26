@@ -58,6 +58,11 @@ it('limits how far ahead bookings can be made', function (string $start, bool $o
     '30 days and a minute' => ['2026-12-02T12:01:00Z', false],
 ]);
 
+it('explains the booking horizon', function (): void {
+    expect((new WithinBookingHorizon(90))->violationsOf(bookingRequest('2027-06-01T10:00:00Z', '2027-06-01T11:00:00Z')))
+        ->toBe(['Bookings can be made at most 90 days in advance.']);
+});
+
 it('bounds the duration', function (string $end, bool $ok): void {
     expect((new DurationBetween(30, 240))->isSatisfiedBy(bookingRequest('2026-11-03T10:00:00Z', $end)))->toBe($ok);
 })->with([
@@ -75,6 +80,14 @@ it('checks the grid in the space local time', function (): void {
     expect($hourly->isSatisfiedBy(bookingRequest('2026-11-03T04:30:00Z', '2026-11-03T05:30:00Z', $kolkata)))->toBeTrue()
         ->and($hourly->isSatisfiedBy(bookingRequest('2026-11-03T04:00:00Z', '2026-11-03T05:00:00Z', $kolkata)))->toBeFalse()
         ->and((new AlignedToGrid(15))->isSatisfiedBy(bookingRequest('2026-11-03T10:15:30Z', '2026-11-03T11:00:00Z')))->toBeFalse();
+});
+
+it('counts the grid from midnight, so grids that do not divide an hour work too', function (): void {
+    $grid = new AlignedToGrid(45);
+
+    // 10:30-11:15 in São Paulo: 630 and 675 minutes after midnight, both multiples of 45.
+    expect($grid->isSatisfiedBy(bookingRequest('2026-11-03T13:30:00Z', '2026-11-03T14:15:00Z')))->toBeTrue()
+        ->and($grid->isSatisfiedBy(bookingRequest('2026-11-03T13:45:00Z', '2026-11-03T14:30:00Z')))->toBeFalse();
 });
 
 it('requires the whole slot to be within opening hours', function (string $start, string $end, bool $ok): void {
@@ -107,11 +120,19 @@ describe('composition', function (): void {
 
         expect($both)->toBeInstanceOf(AllOf::class)
             ->and($both->isSatisfiedBy($this->fine))->toBeTrue()
+            ->and($both->isSatisfiedBy($this->tooSoonAndTooLong))->toBeFalse()
             ->and($both->violationsOf($this->fine))->toBe([])
             ->and($both->violationsOf($this->tooSoonAndTooLong))->toBe([
                 'Bookings must start at least 60 minutes from now.',
                 'Bookings must last between 30 and 60 minutes.',
             ]);
+    });
+
+    it('accepts rules spread from a keyed array, such as configuration', function (): void {
+        $rules = new AllOf(...['notice' => $this->notice, 'duration' => $this->short]);
+
+        expect($rules->violationsOf($this->tooSoonAndTooLong))->toHaveCount(2)
+            ->and($rules->isSatisfiedBy($this->fine))->toBeTrue();
     });
 
     it('combines rules with or()', function (): void {
@@ -122,6 +143,12 @@ describe('composition', function (): void {
             ->and($either->violationsOf($this->tooSoonAndTooLong))->toBe([
                 'One of: Bookings must start at least 60 minutes from now / Bookings must last between 30 and 60 minutes.',
             ]);
+    });
+
+    it('describes composed rules in words', function (): void {
+        expect($this->notice->and($this->short)->describe())
+            ->toBe('Bookings must start at least 60 minutes from now. Bookings must last between 30 and 60 minutes.')
+            ->and($this->short->not()->describe())->toBe('Not: Bookings must last between 30 and 60 minutes.');
     });
 
     it('negates rules with not()', function (): void {

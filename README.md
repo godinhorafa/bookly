@@ -9,6 +9,7 @@
 ![PHPStan max](https://img.shields.io/badge/PHPStan-level%20max-brightgreen)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)
 ![NestJS 12](https://img.shields.io/badge/NestJS-12-E0234E)
+![Mutation score 100%](https://img.shields.io/badge/mutation%20score-100%25-brightgreen)
 
 ## Why this project
 
@@ -78,6 +79,14 @@ The same **contract suite** (`tests/Contracts`) runs against the in-memory and
 the PostgreSQL repositories, so the fakes used in unit tests can't drift from
 production behaviour ([ADR 0003](docs/adr/0003-repositories-with-contract-tests.md)).
 
+**Mutation testing** checks that the tests would actually catch a bug. Pest
+changes the domain and use-case code one small way at a time (`>` into `>=`,
+`+ 1` into `+ 2`, a dropped call) and every change must make a unit test fail.
+CI requires **100% of mutants killed**, plus **95% line coverage** overall. The
+first run scored 82%, and the survivors were real gaps: untested event
+payloads, boundaries and a coupon expiry check
+([ADR 0009](docs/adr/0009-mutation-testing.md)).
+
 The realtime service has its own suite (Vitest, `realtime/`): unit tests for
 the signature, parsing and fan-out rules, and end-to-end tests that drive the
 real Nest app over HTTP and Socket.IO. The webhook signature is checked by
@@ -88,6 +97,8 @@ real Nest app over HTTP and Socket.IO. The webhook signature is checked by
 composer test:unit         # fast feedback, no framework
 composer test:integration  # against PostgreSQL, including the concurrency test
 composer ci                # pint + rector + phpstan + all tests
+composer test:mutate       # mutation testing of src/Domain and src/Application (needs PCOV or Xdebug)
+composer test:coverage     # coverage report, fails under 95%
 ```
 
 ## Running locally
@@ -206,6 +217,7 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [0006: Payment gateway as a port with adapters and a shared contract](docs/adr/0006-payment-gateway-port-and-adapters.md)
 - [0007: Domain events delivered through a transactional outbox](docs/adr/0007-domain-events-and-transactional-outbox.md)
 - [0008: A NestJS real-time service fed by signed webhooks](docs/adr/0008-realtime-service-fed-by-signed-webhooks.md)
+- [0009: Mutation testing gates the domain and use cases](docs/adr/0009-mutation-testing.md)
 
 ## Roadmap
 
@@ -225,4 +237,4 @@ unchanged**. See [docs/refactoring/fat-controller.md](docs/refactoring/fat-contr
 - [x] A fat controller refactored into a thin adapter, with the same tests
 - [x] React + TypeScript dashboard with types generated from OpenAPI, Playwright E2E
 - [x] NestJS real-time notification service (WebSocket)
-- [ ] Mutation testing with Infection
+- [x] Mutation testing (Pest) at 100%, coverage gate at 95%

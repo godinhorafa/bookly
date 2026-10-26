@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Application\Event\EventSubscriber;
 use Application\Event\OutboxRelay;
+use Application\Event\RelayReport;
 use Application\Event\StoredEvent;
 use Domain\Booking\CustomerId;
 use Domain\Booking\Event\BookingConfirmed;
@@ -109,6 +110,83 @@ it('parks an event as dead after the maximum number of attempts, then moves on',
     expect($dead)->toBe(1)
         ->and($this->relay->relay()->published)->toBe(1)
         ->and($this->webhook->received)->toBe(['booking.confirmed']);
+});
+
+it('uses every attempt before giving up', function (): void {
+    $this->webhook->failuresLeft = OutboxRelay::MAX_ATTEMPTS - 1;
+    $dead = 0;
+
+    for ($attempt = 1; $attempt <= OutboxRelay::MAX_ATTEMPTS; $attempt++) {
+        $dead += $this->relay->relay()->dead;
+        $this->clock->travelTo($this->clock->now()->modify('+2 hours')->format(DATE_ATOM));
+    }
+
+    expect($dead)->toBe(0)
+        ->and($this->webhook->received)->toContain('booking.requested');
+});
+
+it('gives up after eight attempts, as documented in ADR 0007', function (): void {
+    $this->webhook->failuresLeft = PHP_INT_MAX;
+    $attempts = 0;
+
+    do {
+        $attempts++;
+        $report = $this->relay->relay();
+        $this->clock->travelTo($this->clock->now()->modify('+2 hours')->format(DATE_ATOM));
+    } while ($report->dead === 0 && $attempts < 20);
+
+    expect($attempts)->toBe(8);
+});
+
+it('leases claimed events for two minutes: other relays skip them, a crashed relay\'s lease expires', function (): void {
+    $outbox = new InMemoryOutbox;
+    $clock = new FrozenClock('2026-11-01T12:00:00Z');
+    $outbox->append($clock->now(), BookingRequested::of(Builders::booking(SpaceId::generate(), new CustomerId(1))));
+    $other = new OutboxRelay($outbox, $clock, recordingSubscriber('other'));
+    $claimedByOther = [];
+
+    // While the first relay is still delivering, a second one runs at +119 s, then at +120 s.
+    $slow = new readonly class(function () use ($clock, $other, &$claimedByOther): void {
+        foreach (['2026-11-01T12:01:59Z', '2026-11-01T12:02:00Z'] as $at) {
+            $clock->travelTo($at);
+            $claimedByOther[] = $other->relay()->processed();
+        }
+    }) implements EventSubscriber {
+        public function __construct(private Closure $whileDelivering) {}
+
+        public function name(): string
+        {
+            return 'slow';
+        }
+
+        public function isInterestedIn(string $eventName): bool
+        {
+            return true;
+        }
+
+        public function handle(StoredEvent $event): void
+        {
+            ($this->whileDelivering)();
+        }
+    };
+
+    (new OutboxRelay($outbox, $clock, $slow))->relay();
+
+    expect($claimedByOther)->toBe([0, 1]);
+});
+
+it('relays at most 50 events per batch by default', function (): void {
+    $outbox = new InMemoryOutbox;
+    foreach (range(1, 51) as $i) {
+        $outbox->append($this->clock->now(), BookingRequested::of(Builders::booking(SpaceId::generate(), new CustomerId(1))));
+    }
+
+    expect((new OutboxRelay($outbox, $this->clock))->relay()->published)->toBe(50);
+});
+
+it('reports how many events it handled in total', function (): void {
+    expect((new RelayReport(published: 3, retried: 2, dead: 1))->processed())->toBe(6)
+        ->and((new RelayReport)->processed())->toBe(0);
 });
 
 it('backs off exponentially, capped at one hour', function (): void {

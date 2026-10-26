@@ -33,6 +33,8 @@ it('applies the published refund tables', function (CancellationPolicyType $type
     'moderate, exactly 24h' => [CancellationPolicyType::Moderate, 24, 5_000],
     'moderate, 23h' => [CancellationPolicyType::Moderate, 23, 0],
     'strict, 8 days' => [CancellationPolicyType::Strict, 192, 5_000],
+    'strict, exactly 7 days' => [CancellationPolicyType::Strict, 168, 5_000],
+    'strict, 7 days minus 1h' => [CancellationPolicyType::Strict, 167, 0],
     'strict, 6 days' => [CancellationPolicyType::Strict, 144, 0],
     'non-refundable, 30 days' => [CancellationPolicyType::NonRefundable, 720, 0],
 ]);
@@ -63,4 +65,19 @@ it('rejects ambiguous or invalid tiers', function (Closure $build): void {
     'duplicate notice period' => [fn (): TieredRefundPolicy => new TieredRefundPolicy(new RefundTier(24, 100), new RefundTier(24, 50))],
     'negative hours' => [fn (): RefundTier => new RefundTier(-1, 50)],
     'over 100%' => [fn (): RefundTier => new RefundTier(24, 101)],
+    'negative percent' => [fn (): RefundTier => new RefundTier(24, -1)],
 ])->throws(InvalidCancellationPolicy::class);
+
+it('measures notice to the second', function (): void {
+    $slot = TimeSlot::fromStrings(SLOT_START, '2026-11-10T12:00:00Z');
+    $policy = CancellationPolicyType::Flexible->policy();
+    $paid = Money::of(10_000, Currency::BRL);
+
+    // One second short of 24h falls to the lower tier; half an hour before still gets 50%.
+    expect($policy->refundFor($paid, $slot, (new DateTimeImmutable(SLOT_START))->modify('-86399 seconds'))->amount)->toBe(5_000)
+        ->and($policy->refundFor($paid, $slot, (new DateTimeImmutable(SLOT_START))->modify('-30 minutes'))->amount)->toBe(5_000);
+});
+
+it('allows a tier that refunds nothing', function (): void {
+    expect((new RefundTier(24, 0))->refundPercent)->toBe(0);
+});
